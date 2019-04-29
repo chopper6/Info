@@ -1,7 +1,9 @@
 Usage:
 
+change info_pieces.py line 175: to your local dir [I'll fix this soon]
+
 python3 info_pieces.py [EXAMPLE]
 
-look in example.py for various names such as: xor, and, pwunq (all are case sensitive)
-
-currently working on the 'disordered' version (where [1,0] == [0,1]) so it is a bit of a mess
+- look in example.py for various names for EXAMPLE such as: xor, and, pwunq (all are case sensitive)
+- plots/ already has generated image sto look at
+- currently working on the 'disordered' version (where [1,0] == [0,1]) so it is a bit of a mess
