@@ -120,9 +120,17 @@ def entinf_decomp_v2(Is, keys, input, output, output_path, title):
     vbars = [r[s] - .5*barWidth for s in range(len(r))]
 
     for i in range(len(vbars)):
-        if i == 16 or i==9: a,c = .6,'black'
-        else: a,c=.4, 'grey'
+        if i == 16 or i==9 or i==20: a,c = .8,'black'
+        elif i==22: a,c = .6, 'grey'
+        else: a,c=.3, 'grey'
         plt.axvline(x=vbars[i], alpha=a, color=c)
+
+    hrz = [0,-1,1,2]
+    for h in hrz:
+        plt.axhline(y=h, alpha=.2, color='grey')
+    hrz_light = [.25,.5,.75]
+    for h in hrz_light:
+        plt.axhline(y=h, alpha=.1, color='grey')
 
     labels = []
     for i in range(len(output)):
@@ -146,6 +154,71 @@ def entinf_decomp_v2(Is, keys, input, output, output_path, title):
 
     plt.tight_layout()
     plt.savefig(output_path + "/infoentropy_pieces_" + str(title) + ".png")
+    plt.clf()
+
+
+def partial_avgs(Is, keys, input, output, output_path, title):
+    # Is and keys must be from info_pieces.partial_avgs()
+
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    colors = ['#006699', '#6600cc', '#cc0066', '#ff6666']
+    rc('font')
+
+    bars = []
+    for i in range(len(Is)):
+        row = []
+        for k in range(len(keys)):
+            row += [Is[i][keys[k]]]
+        bars += [row]
+
+    plt.figure(1, [24, 10])
+
+    # The position of the bars on the x-axis
+    r = [2 * i for i in range(len(bars[0]))]
+    barWidth = .3
+    r_xticks = [r[s] + 3 * (barWidth) for s in range(len(r))]
+    vbars = [r[s] - .5 * barWidth for s in range(len(r))]
+
+    for i in range(len(vbars)):
+        if i == 8 or i == 12:
+            a, c = .8, 'black'
+        elif i==14 or i==16: a,c = .6,'grey'
+        else:
+            a, c = .3, 'grey'
+        plt.axvline(x=vbars[i], alpha=a, color=c)
+
+    hrz = [0,-1,1,2]
+    for h in hrz:
+        plt.axhline(y=h, alpha=.2, color='grey')
+    hrz_light = [.25,.5,.75]
+    for h in hrz_light:
+        plt.axhline(y=h, alpha=.1, color='grey')
+
+    labels = []
+    for i in range(len(output)):
+        labels += [str(input[0][i]) + ', ' + str(input[1][i]) + ' --> ' + str(output[i])]
+
+    for b in range(len(bars)):
+        # r = [r[s]+barWidth+.05 for s in range(len(r))]
+        if b < 4:
+            l = labels[b]
+        else:
+            l = None
+        r = [r[s] + barWidth + .05 for s in range(len(r))]
+        plt.bar(r, bars[b], width=barWidth, edgecolor='white', color=colors[b % 4], label=l, alpha=.7)
+
+    plt.xticks(r_xticks, keys, fontsize='large')
+    plt.ylabel("Partial Average Info", fontsize='x-large')
+    plt.title(title + ' pieces', fontsize='xx-large')
+    plt.legend(fontsize='xx-large', shadow=True, title='instances')
+    plt.ylim(-1.2, 2.2)
+    plt.yticks(fontsize='x-large')
+    # plt.yticks([0,.5,1,1.5,2],[0,.5,1,1.5,2])
+
+    plt.tight_layout()
+    plt.savefig(output_path + "/partial_avgs_" + str(title) + ".png")
     plt.clf()
 
 
@@ -176,13 +249,13 @@ def prob_atoms(Ps, keys, input, output, output_path, title):
     vbars = [r[s] - .5*barWidth for s in range(len(r))]
 
     for i in range(len(vbars)):
-        if i == 16 or i==9: a,c = .6,'black'
+        if i == 10 or i==7: a,c = .6,'black'
         else: a,c=.4, 'grey'
         plt.axvline(x=vbars[i], alpha=a, color=c)
 
-    plt.axhline(y=.25, alpha=.2, color='grey')
-    plt.axhline(y=.5, alpha=.2, color='grey')
-    plt.axhline(y=.75, alpha=.2, color='grey')
+    hrz = [0,.25,.5,.75,1]
+    for h in hrz:
+        plt.axhline(y=h, alpha=.2, color='grey')
 
     labels = []
     for i in range(len(output)):

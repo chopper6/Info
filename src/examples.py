@@ -10,6 +10,8 @@ def get_io(name):
 
     elif name == 'pw_v2':
         input, output = pw_v2()
+    elif name == 'pw_v3':
+        input, output = pw_v3()
     elif name == 'pwunq':
         input, output = PwUnq()
     elif name == 'rdnerr':
@@ -20,6 +22,10 @@ def get_io(name):
         input, output = breaker()
     elif name == 'id':
         input, output = id()
+    elif name == 'id2':
+        input, output = id_v2()
+    elif name == 'id3':
+        input, output = id_v3()
     else:
         assert (False)  # unknown sys.argv[1]
 
@@ -59,6 +65,11 @@ def pw_v2():
     output = [1,0,2,0]
     return input, output
 
+def pw_v3():
+    input = [[0,1,0,2],[1,0,2,0]]
+    output = [1,2,3,4]
+    return input, output
+
 def PwUnq(): # as in Finn & Lizier
     input = [[0,1,0,2],[1,0,2,0]]
     output = [1,1,2,2]
@@ -82,4 +93,14 @@ def breaker():
 def id():
     input = [[1,1,0,0],[1,1,0,0]]
     output = [1,1,0,0]
+    return input, output
+
+def id_v2():
+    input = [[1,1,1,0],[1,1,1,0]]
+    output = [1,1,1,0]
+    return input, output
+
+def id_v3():
+    input = [[1,1,1,1,0],[1,1,1,1,0]]
+    output = [1,1,1,1,0]
     return input, output

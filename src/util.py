@@ -112,9 +112,10 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
 
 
     # add back duplicates
+    added = []
     for i in range(len(output)):
         for j in range(i):
-            if i!=j:
+            if i!=j and j not in added:
                 if input[0][i] == input[0][j] and input[1][i] == input[1][j] and output[i] == output[j]:
                     x1,x2,y = input[0][i], input[1][i], output[i]
                     aligned_pr_xxy += [pr_xxy[x1][x2][y]]
@@ -137,6 +138,7 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
                     aligned_inputs[0] += [x1]
                     aligned_inputs[1] += [x2]
                     aligned_outputs += [y]
+                    added += [j]
 
     if debug:
         assert(len(aligned_pr_x[0]) == len(aligned_pr_xxy) == len(aligned_pr_xy[1]) == len(aligned_pr_y))
@@ -151,7 +153,6 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
                aligned_inputs, aligned_outputs
 
     else: return aligned_pr_y, aligned_pr_x, aligned_pr_xx, aligned_pr_xy, aligned_pr_xxy, aligned_inputs, aligned_outputs
-
 
 
 
