@@ -2,49 +2,83 @@ import os, numpy as np, math
 from matplotlib import pyplot as plt
 from matplotlib import rc
 from matplotlib.gridspec import GridSpec
+import matplotlib.patches as mpatches
 
 from info_fns import *
 
+
+pie_colors = ['#66ff33','#cc66ff','#ff0066','#00ffff']
+bar_colors = ['#006699','#6600cc','#cc0066','#ff6666']
+PID_pieces = ['R','U1','U2','S']
+
 # TODO
-# info_bars text is too big/ andor img too small (jP fixed)
-# pies add titles, fix siden (doesn't need to be equal); make nicer
-# axioms should test all ex's in a set...
+# better colors w/o shadow for pies
+# larger info title
+# pies fix siden (doesn't need to be equal); make nicer
+
+# add back vertical partitions to bar plots
 
 def PID_pie(PIDs, output_path, title):
     #ks = PIDs.keys()
     siden = int(math.ceil(math.sqrt(len(PIDs))))
-    fig, axs = plt.subplots(siden, siden)
+    fig, axs = plt.subplots(siden, siden,figsize=(10,10))
 
     i=0
     for k in PIDs.keys():
         one_pie(PIDs[k], k, axs, math.floor(i/siden), i%siden)
         i+=1
 
-    # TODO: fix, curr only blanks one
     for j in range(i,int(math.pow(siden,2))):
-        axs[math.floor(i/siden), i%siden].axis('off')
+        axs[math.floor(j/siden), j%siden].axis('off')
 
-
+    fig.suptitle(title, size=20)
+    pie_legend()
     plt.savefig(output_path + "/pid_pies_" + str(title) + ".png")
 
 
 def one_pie(pid, key, axs, x, y):
-    labels = ['R','U1','U2','S']
-    fracs = [pid['R'], pid['U1'], pid['U2'], pid['S']]
+    tot = pid['R'] + pid['U1'] + pid['U2'] + pid['S']
+    fracs = [pid['R']/tot, pid['U1']/tot, pid['U2']/tot, pid['S']/tot]
+    colors, dels = [], []
+    for f in range(len(fracs)):
+        if fracs[f] == 0: dels += [f]
+        else: colors += [pie_colors[f]]
+    for f in dels:
+        #print(f, fracs, dels)
+        del fracs[f]
+        for i in range(len(dels)): #need to shift remaining dels since list shrinks
+            dels[i] -= 1
 
-    axs[x, y].pie(fracs, labels=labels)
+    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct='%1.1f%%', shadow=True, startangle=90, colors=colors)
+
+    for a in autotxt:
+        a.set_fontsize(6)
+        a.set_fontweight('semibold')
+    for w in wedges:
+        w.set_alpha(.4)
+
+    axs[x, y].axis('equal')
     axs[x, y].set_title(key)
 
+
+def pie_legend():
+    handles = []
+    for c in range(len(pie_colors)):
+        patch = mpatches.Patch(color=pie_colors[c], label=PID_pieces[c], alpha=.8)
+        handles += [patch]
+    plt.legend(handles=handles)
 
 
 def build_info_bars(Pr, Al):
     # shows partial info decomp by instances
     num_inst = len(Al['y'])
-    keys = ['i(x1,y)','i(x2,y)','i(xx,y)','i(x1,x2)']
+    ikeys = ['i(x1,y)','i(x2,y)','i(xx,y)','i(x1,x2)']
+    hkeys = ['h(xx)']
+    keys = ikeys + hkeys
     I = [{k:0 for k in keys} for i in range(num_inst)]
     # so I[inst][key]
     for i in range(num_inst):
-        for k in keys:
+        for k in ikeys:
             rm_chars = ['(',')','i']
             al = k
             for r in rm_chars: al = al.replace(r,'')
@@ -56,6 +90,13 @@ def build_info_bars(Pr, Al):
             I[i]['<' + k + '>' + al[0]] = partial_info(Pr,Al,al[1],a,i)
             I[i]['<' + k + '>' + al[1]] = partial_info(Pr,Al,a,al[1],i)
 
+        for k in hkeys:
+            rm_chars = ['(',')','h']
+            al = k
+            for r in rm_chars: al = al.replace(r,'')
+            if al == 'xx': al = 'x1,x2'
+            I[i][k] = H(Pr,al)
+
     return I
 
 def info_bars(Pr, Al, output_path, title):
@@ -64,7 +105,7 @@ def info_bars(Pr, Al, output_path, title):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    colors = ['#006699','#6600cc','#cc0066','#ff6666']
+    colors = bar_colors
     rc('font')
 
     bars, keyz = [], []

@@ -26,6 +26,13 @@ def get_io(name):
         input, output = id_v2()
     elif name == 'id3':
         input, output = id_v3()
+    elif name == 'xx1':
+        input = [[1,1,0,0],[1,1,0,0]]
+        output = [1,1,1,0]
+    elif name == 'xx2':
+        input = [[1,1,1,0],[1,1,1,0]]
+        output = [1,1,0,0]
+
     else:
         assert (False)  # unknown sys.argv[1]
 
