@@ -21,7 +21,7 @@ PID_pieces = ['R','U1','U2','S']
 def PID_pie(PIDs, output_path, title):
     #ks = PIDs.keys()
     siden = int(math.ceil(math.sqrt(len(PIDs))))
-    fig, axs = plt.subplots(siden, siden,figsize=(10,10))
+    fig, axs = plt.subplots(siden, siden,figsize=(8,8))
 
     i=0
     for k in PIDs.keys():
@@ -49,7 +49,7 @@ def one_pie(pid, key, axs, x, y):
         for i in range(len(dels)): #need to shift remaining dels since list shrinks
             dels[i] -= 1
 
-    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct='%1.1f%%', shadow=True, startangle=90, colors=colors)
+    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct=make_autopct(tot), shadow=True, startangle=90, colors=colors)
 
     for a in autotxt:
         a.set_fontsize(6)
@@ -60,6 +60,11 @@ def one_pie(pid, key, axs, x, y):
     axs[x, y].axis('equal')
     axs[x, y].set_title(key)
 
+def make_autopct(tot):
+    def my_autopct(pct):
+        val = round(pct*tot/100, 3)
+        return '{p:.0f}% \n ({v:.2f})'.format(p=pct,v=val)
+    return my_autopct
 
 def pie_legend():
     handles = []
@@ -85,7 +90,7 @@ def build_info_bars(Pr, Al):
             al = al.split(',')
             if al[0] == 'xx': a = 'x1,x2'
             else: a = al[0]
-            I[i][k] = Info(Pr,a,al[1])
+            I[i][k] = info(Pr[i],a,al[1])
 
             I[i]['<' + k + '>' + al[0]] = partial_info(Pr,Al,al[1],a,i)
             I[i]['<' + k + '>' + al[1]] = partial_info(Pr,Al,a,al[1],i)

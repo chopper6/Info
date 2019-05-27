@@ -56,9 +56,9 @@ def R_candidates(Pr, Al, num_inst):
 
     # TODO: poss frag into smaller fns
 
-    xkeys = ['sqrt I<ii/i>x', '<ii/i>x', 'I<ii/i>x/H','<ii/h>x']
-    ykeys = ['sqrt I<ii/i>y', '<ii/i>y', 'I<ii/i>y/H','<ii/h>y']
-    wkeys = ['II/I','sqrt(III/I)','III/HI', 'II/H'] #w for whole
+    xkeys = ['sqrt I<ii/i>x', '<ii/i>x', 'I<ii/i>x/H','<ii/h>x', 'sqrt I<ii>x/H']
+    ykeys = ['sqrt I<ii/i>y', '<ii/i>y', 'I<ii/i>y/H','<ii/h>y', 'sqrt I<ii>y/H']
+    wkeys = ['II/I','sqrt(III/I)','III/HI', 'II/H','logH II/I'] #w for whole
 
     cand_keys = xkeys + ykeys + wkeys
 
@@ -123,6 +123,10 @@ def R_candidates(Pr, Al, num_inst):
     R['sqrt I<ii/i>x'] = pow(R['<ii/i>x'] * Info(Pr,'x1','x2'), 1 / 2)
     R['I<ii/i>x/H'] = R['<ii/i>x'] * Info(Pr,'x1','x2') / H(Pr,'x1,x2')
     R['I<ii/i>y/H'] = R['<ii/i>y'] * Info(Pr,'x1','x2') / H(Pr,'x1,x2')
+    R['sqrt I<ii>x/H'] = pow(R['<ii/h>x'] * Info(Pr,'x1','x2') , 1/2)
+    R['sqrt I<ii>y/H'] = pow(R['<ii/h>y'] * Info(Pr,'x1','x2') , 1/2)
+
+    R['logH II/I'] = log((H(Pr,'x1')+H(Pr,'x2'))/H(Pr,'x1,x2'),2) * R['II/I']
 
     # only want to plot candidates
     dels = []
@@ -149,13 +153,13 @@ def PID_decompose(R, Pr, print_PID=True):
         PID[k]['U2'] -= PID[k]['R']
         PID[k]['S'] -= (PID[k]['U1'] + PID[k]['U2'] + PID[k]['R'])
 
+        for p in ['R', 'U1', 'U2', 'S']:
+            PID[k][p] = round(PID[k][p],8) #rounding
+
         if print_PID:
             print('\n' + k + ':')
             for p in ['R','U1','U2','S']:
                 print(p + ' = ' + str(PID[k][p]))
-
-        for p in ['R', 'U1', 'U2', 'S']:
-            PID[k][p] = round(PID[k][p],8) #rounding
 
 
     return PID
