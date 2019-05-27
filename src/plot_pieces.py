@@ -1,127 +1,94 @@
-import os, numpy as np
+import os, numpy as np, math
 from matplotlib import pyplot as plt
 from matplotlib import rc
 from matplotlib.gridspec import GridSpec
 
-#todo: 'i' in sep subplot, instances in sep subplot
-#todo: add info (x1,x2)?
+from info_fns import *
 
-#todo: add info/entropy plot (all), with instances in legend
-#todo: add p() atoms plots
+# TODO
+# info_bars text is too big/ andor img too small (jP fixed)
+# pies add titles, fix siden (doesn't need to be equal); make nicer
+# axioms should test all ex's in a set...
 
+def PID_pie(PIDs, output_path, title):
+    #ks = PIDs.keys()
+    siden = int(math.ceil(math.sqrt(len(PIDs))))
+    fig, axs = plt.subplots(siden, siden)
 
-def decomp_plot(Is, input, output, output_path, title):
-    # should have Is[x1], Is[x2], Is[both]
+    i=0
+    for k in PIDs.keys():
+        one_pie(PIDs[k], k, axs, math.floor(i/siden), i%siden)
+        i+=1
 
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-
-    keys = ['h(x)', 'h(x|y)', 'h(y)', 'h(y|x)'] #, 'i']
-    keys_xx = ['(x1)', '(x1|x2)', '(x2)', '(x2|x1)']
-    subtitles = ['x1-y','x2-y','x1x2-y','x1-x2']
-    colors = ['#006699','#6600cc','#cc0066','#ff6666']
-    rc('font')
-    for z in range(4):
-
-        # Values of each group
-        bars, btms, i_bars = [], [], []
-        for i in range(len(Is[0])):
-            row = []
-            for k in range(len(keys)):
-                row += [Is[z][i][keys[k]]]
-            bars += [row]
-
-            i_bars += [Is[z][i]['i']]
-            #if i==0: btms += [None] # for i in range(len(bars[0]))]
-            #elif i==1: btms += [bars[0]]
-            #else: btms += [[btms[-1][i] + bars[-1][i] for i in range(len(bars[-1]))]]
-
-            #if i == 0: btms += [None]  # for i in range(len(bars[0]))]
-            #elif i == 1: btms += [[max(bars[0]) for d in range(len(bars[0]))]]
-            #else:  btms += [[btms[-1][i] + max(bars[-1]) for i in range(len(bars[-1]))]]
-
-        # The position of the bars on the x-axis
-        r = [1,3,5,7]
-        barWidth = .3
-        r_xticks = [r[s]+2.5*(barWidth+.02) for s in range(len(r))]
-
-        # main H pieces
-        #f, (a0, a1) = plt.subplots(1, 2, gridspec_kw={'width_ratios': [3, 1]})
-
-        plt.subplot(1,3,1)
-        plt.plot()
-        plt.xlim(0,4)
-        plt.ylim(0,4)
-        plt.xticks([],[])
-        plt.yticks([],[])
-        for i in range(len(output)):
-            s= str(input[0][i]) + ', ' + str(input[1][i]) + ' --> ' + str(output[i])
-            plt.text(1,(i+1)/2,s,color=colors[i], fontweight='bold')
+    # TODO: fix, curr only blanks one
+    for j in range(i,int(math.pow(siden,2))):
+        axs[math.floor(i/siden), i%siden].axis('off')
 
 
-        plt.subplot(1, 3, 2)
-        for b in range(len(bars)):
-            r = [r[s]+barWidth+.05 for s in range(len(r))]
-            plt.bar(r, bars[b], width=barWidth, edgecolor='white',color=colors[b%4], label='mi ' + str(b), alpha=.7)
-        plt.axvline(x=4.85, alpha=.4, color='grey')
-
-        if z==3: plt.xticks(r_xticks, keys_xx)
-        else: plt.xticks(r_xticks, keys)
-        #plt.xlabel("Lattice")
-        plt.ylabel("Entropy")
-        plt.title(title + ' ' + str(subtitles[z]))
-        #plt.legend()
-        plt.ylim(0,2)
-        plt.yticks([0,.5,1,1.5,2],[0,.5,1,1.5,2])
-
-        # just i
-        f=plt.subplot(1, 3, 3)
-        barWidth = .25
-        for b in range(len(i_bars)):
-            plt.bar(1+b/4, i_bars[b], width=barWidth, edgecolor='white',color=colors[b%4], label='mi ' + str(b), alpha=.7)
-        plt.axhline(y=0, color='grey', alpha=.5)
-
-        plt.xlabel('total info')
-        plt.ylim(-2,2)
-        plt.yticks([-2,-1,0,1,2],[-2,-1,0,1,2])
-        plt.xticks([],[])
-
-        f.yaxis.tick_right()
-
-        plt.tight_layout()
-        plt.savefig(output_path + "/" + str(title) + "_" + str(subtitles[z]) + "_info_pieces.png")
-        plt.clf()
+    plt.savefig(output_path + "/pid_pies_" + str(title) + ".png")
 
 
-def entinf_decomp_v2(Is, keys, input, output, output_path, title):
-    # Is must be flat in form: Is[instance]{flat_keys}, where keys==flat_keys
+def one_pie(pid, key, axs, x, y):
+    labels = ['R','U1','U2','S']
+    fracs = [pid['R'], pid['U1'], pid['U2'], pid['S']]
 
+    axs[x, y].pie(fracs, labels=labels)
+    axs[x, y].set_title(key)
+
+
+
+def build_info_bars(Pr, Al):
+    # shows partial info decomp by instances
+    num_inst = len(Al['y'])
+    keys = ['i(x1,y)','i(x2,y)','i(xx,y)','i(x1,x2)']
+    I = [{k:0 for k in keys} for i in range(num_inst)]
+    # so I[inst][key]
+    for i in range(num_inst):
+        for k in keys:
+            rm_chars = ['(',')','i']
+            al = k
+            for r in rm_chars: al = al.replace(r,'')
+            al = al.split(',')
+            if al[0] == 'xx': a = 'x1,x2'
+            else: a = al[0]
+            I[i][k] = Info(Pr,a,al[1])
+
+            I[i]['<' + k + '>' + al[0]] = partial_info(Pr,Al,al[1],a,i)
+            I[i]['<' + k + '>' + al[1]] = partial_info(Pr,Al,a,al[1],i)
+
+    return I
+
+def info_bars(Pr, Al, output_path, title):
+
+    Is = build_info_bars(Pr, Al)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
     colors = ['#006699','#6600cc','#cc0066','#ff6666']
     rc('font')
 
-    bars = []
+    bars, keyz = [], []
     for i in range(len(Is)):
         row = []
-        for k in range(len(keys)):
-            row += [Is[i][keys[k]]]
+        for k in Is[0].keys():
+            row += [Is[i][k]]
+            keyz += [k]
         bars += [row]
 
-
-
-    plt.figure(1,[20, 10])
+    plt.figure(1,[24, 10])
 
     # The position of the bars on the x-axis
+    # TODO: curr for #bars per set = 4, could generalize
     r = [2*i for i in range(len(bars[0]))]
     barWidth = .3
     r_xticks = [r[s]+3*(barWidth) for s in range(len(r))]
     vbars = [r[s] - .5*barWidth for s in range(len(r))]
 
+    blackbars = []
+    darkgreybars = []
     for i in range(len(vbars)):
-        if i == 16 or i==9 or i==20: a,c = .8,'black'
-        elif i==22: a,c = .6, 'grey'
+        if i  in blackbars: a,c = .8,'black'
+        elif i in darkgreybars: a,c = .6, 'grey'
         else: a,c=.3, 'grey'
         plt.axvline(x=vbars[i], alpha=a, color=c)
 
@@ -133,8 +100,8 @@ def entinf_decomp_v2(Is, keys, input, output, output_path, title):
         plt.axhline(y=h, alpha=.1, color='grey')
 
     labels = []
-    for i in range(len(output)):
-        labels += [str(input[0][i]) + ', ' + str(input[1][i]) + ' --> ' + str(output[i])]
+    for i in range(len(Al['y'])):
+        labels += [str(Al['x1'][i]) + ', ' + str(Al['x2'][i]) + ' --> ' + str(Al['y'][i])]
 
     for b in range(len(bars)):
         #r = [r[s]+barWidth+.05 for s in range(len(r))]
@@ -144,8 +111,8 @@ def entinf_decomp_v2(Is, keys, input, output, output_path, title):
         plt.bar(r, bars[b], width=barWidth, edgecolor='white',color=colors[b%4], label=l, alpha=.7)
 
 
-    plt.xticks(r_xticks, keys, fontsize='large')
-    plt.ylabel("Pointwise Info (i) or Entropy (h)", fontsize='x-large')
+    plt.xticks(r_xticks, keyz, fontsize='large')
+    plt.ylabel("Pointwise Info (i)", fontsize='x-large')
     plt.title(title + ' pieces', fontsize = 'xx-large')
     plt.legend(fontsize='xx-large', shadow=True, title='instances')
     plt.ylim(-1.2,2.3)
@@ -153,73 +120,10 @@ def entinf_decomp_v2(Is, keys, input, output, output_path, title):
     #plt.yticks([0,.5,1,1.5,2],[0,.5,1,1.5,2])
 
     plt.tight_layout()
-    plt.savefig(output_path + "/infoentropy_pieces_" + str(title) + ".png")
+    plt.savefig(output_path + "/info_bars_" + str(title) + ".png")
     plt.clf()
 
 
-def partial_avgs(Is, keys, input, output, output_path, title):
-    # Is and keys must be from info_pieces.partial_avgs()
-
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-
-    colors = ['#006699', '#6600cc', '#cc0066', '#ff6666']
-    rc('font')
-
-    bars = []
-    for i in range(len(Is)):
-        row = []
-        for k in range(len(keys)):
-            row += [Is[i][keys[k]]]
-        bars += [row]
-
-    plt.figure(1, [24, 10])
-
-    # The position of the bars on the x-axis
-    r = [2 * i for i in range(len(bars[0]))]
-    barWidth = .3
-    r_xticks = [r[s] + 3 * (barWidth) for s in range(len(r))]
-    vbars = [r[s] - .5 * barWidth for s in range(len(r))]
-
-    for i in range(len(vbars)):
-        if i == 8 or i == 12:
-            a, c = .8, 'black'
-        elif i==14 or i==16: a,c = .6,'grey'
-        else:
-            a, c = .3, 'grey'
-        plt.axvline(x=vbars[i], alpha=a, color=c)
-
-    hrz = [0,-1,1,2]
-    for h in hrz:
-        plt.axhline(y=h, alpha=.2, color='grey')
-    hrz_light = [.25,.5,.75]
-    for h in hrz_light:
-        plt.axhline(y=h, alpha=.1, color='grey')
-
-    labels = []
-    for i in range(len(output)):
-        labels += [str(input[0][i]) + ', ' + str(input[1][i]) + ' --> ' + str(output[i])]
-
-    for b in range(len(bars)):
-        # r = [r[s]+barWidth+.05 for s in range(len(r))]
-        if b < 4:
-            l = labels[b]
-        else:
-            l = None
-        r = [r[s] + barWidth + .05 for s in range(len(r))]
-        plt.bar(r, bars[b], width=barWidth, edgecolor='white', color=colors[b % 4], label=l, alpha=.7)
-
-    plt.xticks(r_xticks, keys, fontsize='large')
-    plt.ylabel("Partial Average Info", fontsize='x-large')
-    plt.title(title + ' pieces', fontsize='xx-large')
-    plt.legend(fontsize='xx-large', shadow=True, title='instances')
-    plt.ylim(-1.2, 2.2)
-    plt.yticks(fontsize='x-large')
-    # plt.yticks([0,.5,1,1.5,2],[0,.5,1,1.5,2])
-
-    plt.tight_layout()
-    plt.savefig(output_path + "/partial_avgs_" + str(title) + ".png")
-    plt.clf()
 
 
 def prob_atoms(Ps, keys, input, output, output_path, title):
@@ -238,9 +142,7 @@ def prob_atoms(Ps, keys, input, output, output_path, title):
             row += [Ps[i][keys[k]]]
         bars += [row]
 
-
-
-    plt.figure(1,[10, 6])
+    plt.figure(1,[20, 6])
 
     # The position of the bars on the x-axis
     r = [2*i for i in range(len(bars[0]))]
@@ -278,5 +180,5 @@ def prob_atoms(Ps, keys, input, output, output_path, title):
     #plt.yticks([0,.5,1,1.5,2],[0,.5,1,1.5,2])
 
     plt.tight_layout()
-    plt.savefig(output_path + "/prob_pieces_" + str(title) + ".png")
+    plt.savefig(output_path + "/pr_pieces_" + str(title) + ".png")
     plt.clf()
