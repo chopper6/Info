@@ -1,7 +1,7 @@
 import networkx as nx
 from itertools import product
 
-import examples
+import examples, run_fwd
 
 # TODO: run all nets, only keep those with correct solution
 # see gen_Gs
@@ -23,24 +23,28 @@ def gen_graphs(n, ex, debug=False):
     assert(n >= num_out + num_in)
 
     net = nx.DiGraph()
+    net.graph['inputs'] = [i for i in range(num_in)]
+    net.graph['hidden'] = [i for i in range(num_in, n-num_out)]
+    net.graph['outputs'] = [i for i in range(n - num_out,n)]
     # TODO: layer -> op, where in+out don't have ops
     for i in range(n):
         if i < num_in: net.add_node(i,op='input')
         elif i < num_in + num_out: net.add_node(i,op='output')
         else: net.add_node(i, op=None)
 
-    nodes_except_out = [i for i in range(n-num_out)] #exclude out_nodes
-    out_nodes = [i for i in range(n - num_out,n)] #should be 1 for now
-    in_nodes = [i for i in range(num_in)]
-
     Gs = []
-    for out_node in out_nodes:
+    for out_node in net.graph['outputs']:
         Gs += gen_Gs(net,out_node, nodes_except_out, in_nodes, out_nodes)
 
     len_orig = len(Gs)
     Gs = assign_op_combos(Gs)
     len_final = len(Gs)
-    print("Final vs orig Gs lng = " + str(len_orig) + ', ' + str(len_final))
+    if debug: print("\nComboOpsGs vs OrigGs lng = " + str(len_orig) + ', ' + str(len_final) + '\n')
+
+
+    check(Gs)
+    Gs = keep_correct(Gs, ex)
+    if debug: print("CorrectGs remaining lng = " + str(len(Gs)))
 
 
     if debug and False:
@@ -48,6 +52,13 @@ def gen_graphs(n, ex, debug=False):
         for G in Gs: print(G.edges())
 
 
+
+def keep_correct(Gs, ex):
+    correct_Gs = []
+    for G in Gs:
+        accuracy = run_fwd.all_instances(G, ex)
+        if accuracy == 1: correct_Gs += [G]
+    return correct_Gs
 
 def assign_op_combos(Gs):
     # assigns all combinations of ops = [and, nand, or, nor]
@@ -57,16 +68,12 @@ def assign_op_combos(Gs):
 
     for G in Gs:
         net = G.copy()
-        ordered_nodes = []
-        for n in net.nodes():
-            if net.nodes[n]['op'] != 'input' and net.nodes[n]['op'] != 'output':
-                ordered_nodes += [n]
-        prods = product(ops,repeat=len(ordered_nodes))
+        prods = product(ops,repeat=len(net.graph['hidden']))
 
         for p in prods:
             pnet = net.copy()
-            for i in range(len(ordered_nodes)):
-                pnet.nodes[ordered_nodes[i]]['op'] = p[i]
+            for i in range(len(net.graph['hidden'])):
+                pnet.nodes[net.graph['hidden'][i]]['op'] = p[i]
 
             Gs_opd += [pnet]
 
@@ -74,17 +81,30 @@ def assign_op_combos(Gs):
 
 
 
-def has_an_io_path(net, in_nodes, out_nodes):
+def has_an_io_path(net):
     # at least one input node must be connected to an output
-    for i in in_nodes:
-        for o in out_nodes:
-            if nx.has_path(net, i,o): return True
+    for o in net.graph['outputs']:
+        o_path = False
+        for i in net.graph['inputs']:
+            if nx.has_path(net, i,o): o_path=True
+        if not o_path: return False
 
-    return False
+    return True
 
 
 
-def gen_Gs(net_orig, out_node, nodes, in_nodes, out_nodes):
+def check(Gs):
+    for G in Gs:
+        assert(nx.is_directed_acyclic_graph(G))
+        assert(has_an_io_path(G))
+        for i in G.graph['inputs']: assert(G.nodes[i]['op']=='input')
+        for o in G.graph['outputs']:
+            print(o)
+            assert(G.nodes[o]['op']=='output')
+
+
+
+def gen_Gs(net_orig, out_node, nodes):
     # generates acyclic graphs with max 2 in vertices
     # TODO: CLEAN + relax the copying gat dam
     # TODO: rm if no path btwn at least 1 input + output
@@ -134,5 +154,5 @@ def gen_Gs(net_orig, out_node, nodes, in_nodes, out_nodes):
 
 # just for testing purposes
 n = 5
-ex = 'pwunq'
+ex = 'and'
 gen_graphs(n,ex, debug=True)
