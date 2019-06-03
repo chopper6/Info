@@ -34,7 +34,7 @@ def check_axioms_many(PR, PIDS, output_path):
                 if a == False:
                     if axioms[k][t] == True:
                         axioms[k][t] = p
-                    else: axioms[k][t] = axioms[k][t] + ' ' + p
+                    else: axioms[k][t] = axioms[k][t] + '; ' + p
 
 
     write_axioms(axioms, output_path + 'axioms_ALL.csv')

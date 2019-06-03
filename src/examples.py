@@ -32,6 +32,27 @@ def get_io(name):
     elif name == 'xx2':
         input = [[1,1,1,0],[1,1,1,0]]
         output = [1,1,0,0]
+    elif name == 'imbalance':
+        input = [[1,1,1,0,0,0],[1,0,0,0,0,0]]
+        output = [1,1,1,0,0,0]
+    elif name == 'imbalance2':
+        input = [[1,1,1,0,0,0],[0,0,0,0,0,1]]
+        output = [1,1,1,0,0,1]
+    elif name == 'imbalance3':
+        input = [[1,2,3,1,0,0],[0,0,0,0,2,3]]
+        output = [1,2,3,1,2,3]
+
+
+    elif name == 'crutch_dyadic': #note that he doesn't specify inputs vs outputs
+        input = [[0,0,1,1,2,2,3,3], [0,2,0,2,1,3,1,3]]
+        output = [0,1,2,3,0,1,2,3]
+    elif name == 'crutch_triadic':
+        input = [[0,1,0,1,2,3,2,3],[0,1,2,3,0,1,2,3]]
+        output = [0,1,2,3,2,3,0,1]
+
+    elif name == 'concat':
+        input = [[0,0,1,1],[0,1,0,1]]
+        output = [0,1,2,3]
 
     else:
         assert (False)  # unknown sys.argv[1]

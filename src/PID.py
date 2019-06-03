@@ -56,13 +56,17 @@ def R_candidates(Pr, Al, num_inst):
 
     # TODO: poss frag into smaller fns
 
-    xkeys = ['sqrt I<ii/i>x', '<ii/i>x', 'I<ii/i>x/H','<ii/h>x', 'sqrt I<ii>x/H']
-    ykeys = ['sqrt I<ii/i>y', '<ii/i>y', 'I<ii/i>y/H','<ii/h>y', 'sqrt I<ii>y/H']
-    wkeys = ['II/I','sqrt(III/I)','III/HI', 'II/H','logH II/I'] #w for whole
+    xkeys = ['<ii/i>x', 'min>x']
+    ykeys = ['<ii/i>y', 'min>y']
+    wkeys = ['II/I', 'min(II)', 'min(III)'] #w for whole
 
     cand_keys = xkeys + ykeys + wkeys
 
+    # ARCHIVE OF DEAD ENDS:
     defunct_keys = ['III/I','sqrt(II/I)', 'II/I', '<iii/i>x','<iii/i>y',  '<ii1/i>x','<ii1/i>y','<ii2/i>x','<ii2/i>y','<i1/i>x','<i1/i>y','<i2/i>x','<i2/i>y'] #eventually need to clean out some
+    defunct_keys_2 = ['sqrt I<ii>y/H', 'sqrt I<ii>x/H','<ii/h>y', '<ii/h>x', 'sqrt I<ii/i>x', 'sqrt I<ii/i>y','sqrt(III/I)', 'II/H']
+    defunct_keys_3 = ['logH II/I','sqrt II','III/HI', 'I<ii/i>y/H', 'sqrt <ii>y', 'I<ii/i>x/H', 'sqrt <ii>x']
+    defunct_keys_4 = ['min(iiii)>x', 'min(iii)>y']
 
     r = [{k:0 for k in cand_keys} for i in range(num_inst)]
 
@@ -77,7 +81,11 @@ def R_candidates(Pr, Al, num_inst):
 
         r[i]['<iii/i>x'] = r[i]['<ii/i>x'] * info(Pr[i],'x1','x2')
         r[i]['sqrt I<ii/i>x'] = r[i]['<ii/i>x']
-        r[i]['<ii/h>x'] = partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i) / h(Pr[i], 'x1,x2')
+        #r[i]['<ii/h>x'] = partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i) / h(Pr[i], 'x1,x2')
+        r[i]['sqrt <ii>x'] = pow(partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i), 1/2)
+
+        r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
+        r[i]['min(iiii)>x'] = min(partial_info(Pr,Al,'x2','x1',i), partial_info(Pr,Al,'x1','x2',i),  partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
 
         # PARTIAL Y CANDIDATES
         if partial_info(Pr,Al,'x1,x2','y',i) == 0:
@@ -88,9 +96,12 @@ def R_candidates(Pr, Al, num_inst):
 
         r[i]['<iii/i>y'] = r[i]['<ii/i>y'] * info(Pr[i], 'x1', 'x2')
         r[i]['sqrt I<ii/i>y'] = r[i]['<ii/i>y']
-        r[i]['<ii/h>y'] = partial_info(Pr,Al,'x1','y',i) * partial_info(Pr,Al,'x2','y',i) / h(Pr[i], 'x1,x2')
+        #r[i]['<ii/h>y'] = partial_info(Pr,Al,'x1','y',i) * partial_info(Pr,Al,'x2','y',i) / h(Pr[i], 'x1,x2')
+        r[i]['sqrt <ii>y'] = pow(partial_info(Pr, Al, 'x1','y', i) * partial_info(Pr, Al,'x2', 'y',i), 1 / 2)
 
-
+        r[i]['min>y'] = min(partial_info(Pr, Al,'x1','y', i), partial_info(Pr, Al, 'x2','y', i))
+        r[i]['min(iiii)>y'] = min(partial_info_1of3(Pr, Al, 'x2', 'x1','y', i),
+                              partial_info(Pr, Al, 'x1', 'y', i), partial_info(Pr, Al, 'x2','y', i))
 
     # AVERAGE pointwise r -> R
     R = {k: 0 for k in cand_keys}
@@ -109,6 +120,7 @@ def R_candidates(Pr, Al, num_inst):
     else:
         R['III/I'] = Info(Pr, 'x1', 'x2') * Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y') / Info(Pr, 'x1,x2', 'y')
         R['II/I'] = Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y') / Info(Pr, 'x1,x2', 'y')
+        R['sqrt II'] = pow(Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y'), 1/2)
 
         R['sqrt(III/I)'] = pow(R['III/I'], 1 / 2)
         R['sqrt(II/I)'] = pow(R['II/I'], 1 / 2)
@@ -117,14 +129,15 @@ def R_candidates(Pr, Al, num_inst):
 
         R['II/H'] = Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y') / H(Pr, 'x1,x2')
 
+        R['min(II)'] = min(Info(Pr, 'x1', 'y'), Info(Pr, 'x2', 'y'))
+        R['min(III)'] = min(Info(Pr, 'x1', 'y'), Info(Pr, 'x2', 'y'), Info(Pr,'x1','x2'))
+
 
     # MIXED PTWISE AND WHOLE CANDIDATES
     R['sqrt I<ii/i>y'] = pow(R['<ii/i>y'] * Info(Pr,'x1','x2'), 1 / 2)
     R['sqrt I<ii/i>x'] = pow(R['<ii/i>x'] * Info(Pr,'x1','x2'), 1 / 2)
     R['I<ii/i>x/H'] = R['<ii/i>x'] * Info(Pr,'x1','x2') / H(Pr,'x1,x2')
     R['I<ii/i>y/H'] = R['<ii/i>y'] * Info(Pr,'x1','x2') / H(Pr,'x1,x2')
-    R['sqrt I<ii>x/H'] = pow(R['<ii/h>x'] * Info(Pr,'x1','x2') , 1/2)
-    R['sqrt I<ii>y/H'] = pow(R['<ii/h>y'] * Info(Pr,'x1','x2') , 1/2)
 
     R['logH II/I'] = log((H(Pr,'x1')+H(Pr,'x2'))/H(Pr,'x1,x2'),2) * R['II/I']
 
@@ -174,7 +187,9 @@ if __name__ == "__main__":
     output_path= 'C:/Users/Crbn/Documents/Code/Info/plots/'
 
     if sys.argv[1] == 'all':
-        exs = ['xor','id', 'id2','id3','and','breaker','rdnerr', 'an', 'pwunq', 'xor2','pw_v2', 'pw_v3','xx1','xx2']
+        exs = ['xor','id', 'id2','id3','and','breaker','rdnerr', 'an', 'pwunq',
+               'xor2','pw_v2', 'pw_v3','xx1','xx2','imbalance','imbalance2','imbalance3', 'concat']
+        #crutch_dyadic', 'crutch_triadic'
         PIDS,PR = {}, {}
         for ex in exs:
             print('\n...decomposing ' + str(ex))

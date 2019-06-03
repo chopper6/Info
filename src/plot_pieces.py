@@ -77,13 +77,17 @@ def pie_legend():
 def build_info_bars(Pr, Al):
     # shows partial info decomp by instances
     num_inst = len(Al['y'])
-    ikeys = ['i(x1,y)','i(x2,y)','i(xx,y)','i(x1,x2)']
+    ikeys = ['i(x1,x2)','i(x1,y)','i(x2,y)','i(xx,y)']
     hkeys = ['h(xx)']
     keys = ikeys + hkeys
     I = [{k:0 for k in keys} for i in range(num_inst)]
     # so I[inst][key]
     for i in range(num_inst):
-        for k in ikeys:
+        ordered_keys = [] #really only need to build once
+        for j in range(len(ikeys)):
+            k = ikeys[j]
+            ordered_keys += [k]
+
             rm_chars = ['(',')','i']
             al = k
             for r in rm_chars: al = al.replace(r,'')
@@ -94,31 +98,42 @@ def build_info_bars(Pr, Al):
 
             I[i]['<' + k + '>' + al[0]] = partial_info(Pr,Al,al[1],a,i)
             I[i]['<' + k + '>' + al[1]] = partial_info(Pr,Al,a,al[1],i)
+            ordered_keys += ['<' + k + '>' + al[0]]
+            ordered_keys += ['<' + k + '>' + al[1]]
 
-        for k in hkeys:
+            if al[0] == 'xx':
+                I[i]['<' + k + '>x1'] = partial_info_1of3(Pr,Al,al[1],'x2','x1',i)
+                I[i]['<' + k + '>x2'] = partial_info_1of3(Pr,Al,al[1],'x1','x2',i)
+                ordered_keys += ['<' + k + '>x1']
+                ordered_keys += ['<' + k + '>x2']
+
+
+        for j in range(len(hkeys)):
+            k = hkeys[j]
+            ordered_keys += [k]
+
             rm_chars = ['(',')','h']
             al = k
             for r in rm_chars: al = al.replace(r,'')
             if al == 'xx': al = 'x1,x2'
             I[i][k] = H(Pr,al)
 
-    return I
+    return I, ordered_keys
 
 def info_bars(Pr, Al, output_path, title):
 
-    Is = build_info_bars(Pr, Al)
+    Is, ordered_keys = build_info_bars(Pr, Al)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
     colors = bar_colors
     rc('font')
 
-    bars, keyz = [], []
+    bars = []
     for i in range(len(Is)):
         row = []
-        for k in Is[0].keys():
-            row += [Is[i][k]]
-            keyz += [k]
+        for k in range(len(ordered_keys)):
+            row += [Is[i][ordered_keys[k]]]
         bars += [row]
 
     plt.figure(1,[24, 10])
@@ -131,10 +146,10 @@ def info_bars(Pr, Al, output_path, title):
     vbars = [r[s] - .5*barWidth for s in range(len(r))]
 
     blackbars = []
-    darkgreybars = []
+    darkgreybars = [3,6,9,14]
     for i in range(len(vbars)):
         if i  in blackbars: a,c = .8,'black'
-        elif i in darkgreybars: a,c = .6, 'grey'
+        elif i in darkgreybars: a,c = .8, 'grey'
         else: a,c=.3, 'grey'
         plt.axvline(x=vbars[i], alpha=a, color=c)
 
@@ -157,7 +172,7 @@ def info_bars(Pr, Al, output_path, title):
         plt.bar(r, bars[b], width=barWidth, edgecolor='white',color=colors[b%4], label=l, alpha=.7)
 
 
-    plt.xticks(r_xticks, keyz, fontsize='large')
+    plt.xticks(r_xticks, ordered_keys, fontsize='large')
     plt.ylabel("Pointwise Info (i)", fontsize='x-large')
     plt.title(title + ' pieces', fontsize = 'xx-large')
     plt.legend(fontsize='xx-large', shadow=True, title='instances')
