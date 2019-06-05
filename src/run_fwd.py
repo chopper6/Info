@@ -108,11 +108,13 @@ def activate(net,n, ex, instance):
         # node with one input, which it has received
         if len(es)==1:
             e=es[0]
-            if op == 'and' or op == 'or' or op=='output':
+            if op in ['id','and', 'or', 'output']:
                 net.nodes[n]['out'] = net[e[0]][e[1]]['out']
-            elif op == 'nand' or op == 'nor':
+            elif op in ['not','nand','nor']:
                 net.nodes[n]['out'] = 1-net[e[0]][e[1]]['out']
-            else: assert(False) #unknown op
+            else:
+                print(op)
+                assert(False) #unknown op
 
         elif len(es) == 2:
             e1,e2 = net[es[0][0]][n]['out'], net[es[1][0]][n]['out']

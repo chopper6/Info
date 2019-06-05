@@ -1,25 +1,36 @@
 import pr, draw_nets
 from info_fns import *
+from util import *
 
 #TODO: reorganize to be cleaner with previous build?
 
-def judge_em(Gs,out_dir):
+def eval(Gs,out_dir):
     i=0
+    pid_keys = ['<i>x','<i>y']
+    PIDS = []
     for G in Gs:
         PIDs = []
-        for n in G.graph['hidden']+G.graph['outputs']:
+        for j in rng(G.graph['hidden']):
+            n = G.graph['hidden'][j]
             if len(G.in_edges(n)) == 2:
-                PIDs += [eval_node_PID(G,n)]
+                PIDs += [eval_node_horz_PID(G,n)]
 
-            #TODO: add back nodes with one edge, all should be unique info
+            #TODO: very rough and questionable implementation
+            if len(G.in_edges(n)) == 1:
+                in_edges = list(G.in_edges(n))
+                e1 = in_edges[0][0]
+                input = [G.nodes[e1]['hist'], G.nodes[e1]['hist']]
+                output = G.nodes[G.graph['outputs'][0]]['hist']
+                PIDs += [eval_node_PID(G, input, output)]
 
-        PID = merge_node_PIDs(PIDs)
-        draw_nets.with_PID(G, out_dir, PID,i)
+        PIDS += [merge_node_PIDs(PIDs)]
+        draw_nets.with_PID(G, out_dir, PIDS[-1],PIDs, i)
         i+=1
+    if len(Gs) > 0: draw_nets.population(Gs, out_dir, PIDS)
 
 
 def merge_node_PIDs(PIDs):
-    PID_total = {k:{'R':0, 'U1':0, 'U2':0, 'S':0} for k in PIDs[0].keys()}
+    PID_total = {k:{'R':0, 'U1':0,'U2':0, 'S':0} for k in PIDs[0].keys()}
     for pid in PIDs:
         for k in pid.keys():
             for p in pid[k].keys():
@@ -29,13 +40,32 @@ def merge_node_PIDs(PIDs):
 
 
 
+def eval_node_horz_PID(net,node):
+    assert(len(net.graph['outputs']) == 1)
 
-def eval_node_PID(net,node):
-    num_inst = len(net.nodes[node]['hist'])
     es = list(net.in_edges(node))
     e1, e2 = es[0][0],es[1][0]
     input = [net.nodes[e1]['hist'],net.nodes[e2]['hist']]
-    output = net.nodes[node]['hist']
+    output = net.nodes[net.graph['outputs'][0]]['hist']
+    #output = net.nodes[node]['hist']
+
+    return eval_node_PID(net, input, output)
+
+
+def eval_node_vert_PIDs(net, node):
+    # BAD IDEA!!!
+
+    PIDs = []
+    for e in net.in_edges(node):
+        e1 = e[0]
+        input = [net.nodes[e1]['hist'],net.nodes[node]['hist']]
+        output = net.nodes[net.graph['outputs'][0]]['hist']
+        PIDs += [eval_node_PID(net,input,output)]
+    return PIDs
+
+def eval_node_PID(net,input,output):
+    assert(len(net.graph['outputs']) == 1)
+    num_inst = len(input[0])
 
     # get pr's aligned by instances
     pr_y, pr_x, pr_xx, pr_xy, pr_xxy, aligned_inputs, aligned_outputs = pr.find_prs_aligned(input, output,

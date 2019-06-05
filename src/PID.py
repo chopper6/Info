@@ -19,6 +19,7 @@ from info_fns import *
 
 
 def plot_ex(ex, output_path):
+    output_path += 'metrics/'
 
     input, output = examples.get_io(ex)
     num_inst = len(output)

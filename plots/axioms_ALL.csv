@@ -1,8 +1,0 @@
-,XX,LP,M,
-<ii/i>y,concat; pw_v2; and,True,True,
-<ii/i>x,concat; pw_v2; and,True,True,
-min(III),True,True,True,
-min>x,concat; pw_v2; and,True,True,
-II/I,pw_v3; concat; pw_v2; and,True,True,
-min>y,concat; xor2; pw_v2; and,True,True,
-min(II),pw_v3; concat; xor2; pw_v2; and,True,True,
