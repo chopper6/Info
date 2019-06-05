@@ -104,24 +104,34 @@ def with_PID(G, out_dir,PID,ordered_pids, title):
         print("\nCreating new directory for candidate nets at: " + str(out_dir) + '\n')
         os.makedirs(out_dir)
     plt.clf()
-    fig, axs = plt.subplots(2, 2,figsize=(8,8))
+    fig, axs = plt.subplots(2, 3,figsize=(10,10))
     plot_pieces.one_pie(PID['min>x'], '<i>x', axs, 1, 0)
-    plot_pieces.one_pie(PID['min>y'], '<i>y', axs, 1, 1)
+    plot_pieces.one_pie(PID['min>y'], '<i>y', axs, 1, 2)
+    plot_pieces.pie_legend(axs=axs,coords=[1,1], posn='center')
+    axs[1, 1].axis('off')
 
     pid_keys = ordered_pids[0]['min>x'].keys()
-    colors = [ordered_pids[i]['min>x']['S']/sum(ordered_pids[i]['min>x'][k] for k in pid_keys) for i in rng(G.graph['hidden'])]
-    basic_spc_ax(G, axs, [0,0], hcolors=colors)
+    colors_S = [ordered_pids[i]['min>x']['S']/sum(ordered_pids[i]['min>x'][k] for k in pid_keys) for i in rng(G.graph['hidden'])]
+    colors_I = [sum(ordered_pids[i]['min>x'][k] for k in pid_keys) for i in rng(G.graph['hidden'])]
+    basic_spc_ax(G, axs, [0,0], hcolors=colors_S, title='S%')
+    basic_spc_ax(G, axs, [0, 2], hcolors=colors_I, title='Info')
+    nets_cbar(colors_I, 'plasma', axs, [0,1], fig)
     axs[0,1].axis('off')
 
-    fig.suptitle(title, size=12)
-    plot_pieces.pie_legend(axs=axs,coords=[0,1])
+    fig.suptitle(title, size=20)
     plt.savefig(out_dir + str(title))
     plt.clf()
     plt.cla()
     plt.close(fig)
 
 
-def basic_spc_ax(net, ax, coords,  showfig=False, hcolors=None):
+def nets_cbar(hcolors, cmap_choice, ax, coords, fig):
+    cmap = cm.get_cmap(cmap_choice)
+    im = plt.imshow(cmap(hcolors), cmap=cmap_choice, vmax=1, vmin=0)
+    im.set_visible(False)
+    plt.colorbar(im, ax=ax[coords[0], coords[1]])
+
+def basic_spc_ax(net, ax, coords,  showfig=False, hcolors=None, title=None, cbar=False):
     pos = nx.circular_layout(net)  # positions for all nodes
     node_size, nalpha = 800, .6
     # plt.figure(1)
@@ -145,7 +155,6 @@ def basic_spc_ax(net, ax, coords,  showfig=False, hcolors=None):
                                node_color=cmap(hcolors),
                                node_size=node_size, alpha=nalpha,
                                ax=ax[coords[0], coords[1]])
-        #TODO: add colorbar
 
     nx.draw_networkx_nodes(net, pos,
                            nodelist=net.graph['outputs'],
@@ -154,7 +163,9 @@ def basic_spc_ax(net, ax, coords,  showfig=False, hcolors=None):
                            ax=ax[coords[0], coords[1]])
     labels = {n: net.nodes[n]['op'] for n in net.nodes()}
     nx.draw_networkx_labels(net, pos, labels, font_size=8, ax=ax[coords[0], coords[1]])
-
+    if title is not None:
+        ax[coords[0], coords[1]].title.set_text(title)
+        ax[coords[0], coords[1]].title.set_weight('semibold')
     ax[coords[0], coords[1]].axis('off')
     if showfig: plt.show()
 

@@ -32,11 +32,7 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
         elif i >= n - num_out: net.add_node(i,op='output')
         #else: net.add_node(i, op=None)
 
-    Gs = []
-
-    #TODO: add the output loop into gen_Gs
-    for target_node in net.graph['outputs']:
-        Gs += gen_Gs(net, target_node, net.graph['inputs'], hidden_nodes)
+    Gs = gen_Gs(net, net.graph['outputs'], net.graph['inputs'], hidden_nodes)
 
     len_orig = len(Gs)
     Gs = rm_repeats(Gs)
@@ -45,8 +41,8 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
     #draw_nets.save_mult(Gs, out_dir)
     #assert(False)
 
-    #Gs = rm_hidden_repeats(Gs)
-    #if debug: print("\nAfter rm'g hidden inversions: " + str(len(Gs)))
+    Gs = rm_hidden_repeats(Gs)
+    if debug: print("\nAfter rm'g hidden inversions: " + str(len(Gs)))
 
     Gs = assign_op_combos(Gs)
     len_final = len(Gs)
@@ -101,19 +97,74 @@ def rm_repeats(Gs):
     return Gs
 
 def rm_hidden_repeats(Gs):
-    assert(False) #NOT FINISHED
+    #TODO: woah damn, clean this filthy ass mess
     dels = []
     for i in range(len(Gs)):
+        rmd = False
         for j in range(i):
-            #TODO: also with out_edges
+            if rmd: break
+            #TODO: poss for 2 acyclic nets with same in an out degrees for all hidden nodes to have different connectivity?
             if sorted(Gs[i].graph['hidden']) == sorted(Gs[j].graph['hidden']):
-                i_in = [Gs[i].in_edges[h] for h in Gs[i].graph['hidden']]
-                j_in = [Gs[j].in_edges[h] for h in Gs[j].graph['hidden']]
+                i_in_degs = [len(Gs[i].in_edges(h)) for h in sorted(Gs[i].graph['hidden'])]
+                j_in_degs = [len(Gs[j].in_edges(h)) for h in sorted(Gs[j].graph['hidden'])]
+                if i_in_degs == j_in_degs:
+                    i_out_degs = [len(Gs[i].out_edges(h)) for h in sorted(Gs[i].graph['hidden'])]
+                    j_out_degs = [len(Gs[j].out_edges(h)) for h in sorted(Gs[j].graph['hidden'])]
 
-                i_in_edges = [len(x) for x in i_in]
+                    if i_out_degs == j_out_degs:
 
-            print(i_in,j_in)
-            assert(False)
+                        #also need same in_edges from inputs
+                        i_inputs = []
+                        for h in sorted(Gs[i].graph['hidden']):
+                            this_hs_inputs = []
+                            for input in sorted(Gs[i].graph['inputs']):
+                                if (input,h) in Gs[i].in_edges(h):
+                                    this_hs_inputs += [input]
+                            if len(this_hs_inputs) == 0:
+                                this_hs_inputs = ['x']
+                            i_inputs += [this_hs_inputs]
+
+                        j_inputs = []
+                        for h in sorted(Gs[j].graph['hidden']):
+                            this_hs_inputs = []
+                            for input in sorted(Gs[j].graph['inputs']):
+                                if (input,h) in Gs[j].in_edges(h):
+                                    this_hs_inputs += [input]
+                            if len(this_hs_inputs) == 0:
+                                this_hs_inputs = ['x']
+                            j_inputs += [this_hs_inputs]
+
+                        if i_inputs == j_inputs:
+                            # also need same out_edges to output
+                            i_outputs = []
+                            for h in sorted(Gs[i].graph['hidden']):
+                                this_hs_outputs = []
+                                for output in sorted(Gs[i].graph['outputs']):
+                                    if (h,output) in Gs[i].out_edges(h):
+                                        this_hs_outputs += [output]
+                                if len(this_hs_outputs) == 0:
+                                    this_hs_inputs = ['x']
+                                i_outputs += [this_hs_outputs]
+
+                            j_outputs = []
+                            for h in sorted(Gs[j].graph['hidden']):
+                                this_hs_outputs = []
+                                for output in sorted(Gs[j].graph['outputs']):
+                                    if (h,output) in Gs[j].out_edges(h):
+                                        this_hs_outputs += [output]
+                                if len(this_hs_outputs) == 0:
+                                    this_hs_inputs = ['x']
+                                j_outputs += [this_hs_outputs]
+
+                            if i_outputs == j_outputs:
+                                dels +=[i]
+                                rmd = True
+
+    for d in range(len(dels)):
+        del Gs[dels[d]]
+        for e in range(len(dels)): dels[e]-=1
+
+    return Gs
 
 
 def rm_op_repeats(Gs):
@@ -215,79 +266,56 @@ def check(Gs):
 
 
 
-def gen_Gs(net_orig, target_node, input_nodes, hidden_nodes, hidden_nodes_w_edges=None,max_in_degree=2, verbose=True):
-
-    if hidden_nodes_w_edges is None: hidden_nodes_w_edges = []
-
-    # terminate this branch if target_node already has enough edges
-    if net_orig.nodes[target_node]['op'] == 'output': num_edges = 1
-    else: num_edges = max_in_degree
-    if len(net_orig.in_edges(target_node)) == num_edges:
-        return []
+def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, verbose=True):
 
     Gs = []
+    for t in rng(target_nodes):
+        # terminate this branch if target_node already has enough edges
+        if net_orig.nodes[target_nodes[t]]['op'] == 'output': num_edges = 1
+        else: num_edges = max_in_degree
+        if len(net_orig.in_edges(target_nodes[t])) == num_edges: done=True
+        else: done=False
 
-    # try starting with all input_nodes
-    for i in range(len(input_nodes)):
-        if not net_orig.has_edge(input_nodes[i], target_node):
-            net = net_orig.copy()
-            net.add_edge(input_nodes[i],target_node)
-            new_input_nodes = input_nodes.copy()
-            del new_input_nodes[i]
-            if nx.is_directed_acyclic_graph(net):
-                if has_an_io_path(net)and all_hidden_btwn_io(net):
-                    Gs += [net.copy()]
-                # try again with same target node with new input node attached
-                    Gs += gen_Gs(net, target_node, input_nodes, hidden_nodes, hidden_nodes_w_edges=hidden_nodes_w_edges)
-                #Gs += gen_Gs(net, target_node, new_input_nodes, hidden_nodes)
+        if not done:
+            # try starting with all input_nodes
+            for i in range(len(input_nodes)):
+                if not net_orig.has_edge(input_nodes[i], target_nodes[t]):
+                    net = net_orig.copy()
+                    net.add_edge(input_nodes[i],target_nodes[t])
+                    new_input_nodes = input_nodes.copy()
+                    del new_input_nodes[i]
+                    if nx.is_directed_acyclic_graph(net):
+                        if has_an_io_path(net)and all_hidden_btwn_io(net):
+                            Gs += [net.copy()]
+
+                        # try again with same target node with new input node attached
+                        Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes)
 
 
-    for i in range(len(hidden_nodes)):
-        if not net_orig.has_edge(hidden_nodes[i],target_node):
-            net = net_orig.copy()
+            for i in range(len(hidden_nodes)):
+                if not net_orig.has_edge(hidden_nodes[i],target_nodes[t]):
+                    net = net_orig.copy()
 
-            #TODO: this is fucking stupid, make my own copy fn()?
-            net.graph['hidden'] = net_orig.graph['hidden'].copy()
-            net.add_node(hidden_nodes[i], op=None)
-            if hidden_nodes[i] not in net.graph['hidden']:
-                net.graph['hidden'] += [hidden_nodes[i]]
+                    #TODO: this is fucking stupid, make my own copy fn()?
+                    net.graph['hidden'] = net_orig.graph['hidden'].copy()
+                    net.add_node(hidden_nodes[i], op=None)
+                    if hidden_nodes[i] not in net.graph['hidden']:
+                        net.graph['hidden'] += [hidden_nodes[i]]
 
-            net.add_edge(hidden_nodes[i],target_node)
-            new_hidden_nodes = hidden_nodes.copy()
-            del new_hidden_nodes[i]
-            if nx.is_directed_acyclic_graph(net):
+                    net.add_edge(hidden_nodes[i],target_nodes[t])
+                    new_hidden_nodes = hidden_nodes.copy()
+                    del new_hidden_nodes[i]
+                    if nx.is_directed_acyclic_graph(net):
 
-                if has_an_io_path(net) and all_hidden_btwn_io(net):
-                    Gs += [net.copy()]
+                        if has_an_io_path(net) and all_hidden_btwn_io(net):
+                            Gs += [net.copy()]
 
-                # try again with same target node with new hidden node attached
-                new_hidden_nodes_w_edges = hidden_nodes_w_edges.copy() + [hidden_nodes[i]]
-                Gs += gen_Gs(net, target_node, net.graph['inputs'], new_hidden_nodes, hidden_nodes_w_edges=new_hidden_nodes_w_edges)
+                        # try again with same target node with new hidden node attached
+                        Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes)
 
-                # try again with the hidden node as the new target
-                # hidden_node[i] rm'd since would always cause a cycle
-                Gs += gen_Gs(net, hidden_nodes[i], net.graph['inputs'], new_hidden_nodes,  hidden_nodes_w_edges=hidden_nodes_w_edges)
-
-    # TODO: may not be nec
-    for i in rng(hidden_nodes_w_edges):
-        if len(net_orig.in_edges(hidden_nodes_w_edges[i])) == 1:
-            print('\nhere\n')
-            if not net_orig.has_edge(hidden_nodes_w_edges[i], target_node):
-                net = net_orig.copy()
-                net.add_edge(hidden_nodes_w_edges[i], target_node)
-                new_hidden_nodes_w_edges = hidden_nodes_w_edges.copy()
-                del new_hidden_nodes_w_edges[i]
-                if nx.is_directed_acyclic_graph(net):
-
-                    if has_an_io_path(net) and all_hidden_btwn_io(net):
-                        Gs += [net.copy()]
-
-                    # try again with same target node with new hidden node attached
-                    Gs += gen_Gs(net, target_node, net.graph['inputs'], new_hidden_nodes, hidden_nodes_w_edges=new_hidden_nodes_w_edges)
-
-                    #TODO: poss cut this one?
-                    # try again with the hidden node as the new target
-                    Gs += gen_Gs(net, hidden_nodes[i], net.graph['inputs'], new_hidden_nodes, hidden_nodes_w_edges=new_hidden_nodes_w_edges)
+                        # try again with the hidden node as the new target
+                        # hidden_node[i] rm'd since would always cause a cycle
+                        Gs += gen_Gs(net, target_nodes + [hidden_nodes[i]], input_nodes, new_hidden_nodes)
 
     return Gs
 
@@ -298,7 +326,7 @@ def gen_Gs(net_orig, target_node, input_nodes, hidden_nodes, hidden_nodes_w_edge
 # TODO: turn this into command line use
 # just for testing purposes
 n = 6
-ex = 'xor'
+ex = 'and'
 output_path= 'C:/Users/Crbn/Documents/Code/Info/plots/candidate_nets_' + str(ex) + '/'
 use_pickle = False
 if use_pickle: from_pickle(output_path, n, ex)

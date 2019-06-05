@@ -49,7 +49,7 @@ def one_pie(pid, key, axs, x, y):
         for i in range(len(dels)): #need to shift remaining dels since list shrinks
             dels[i] -= 1
 
-    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct=make_autopct(tot), shadow=True, startangle=90, colors=colors)
+    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct=make_autopct(tot), shadow=True, startangle=90, colors=colors, radius=1)
 
     for a in autotxt:
         a.set_fontsize(6)
@@ -58,7 +58,7 @@ def one_pie(pid, key, axs, x, y):
         w.set_alpha(.4)
 
     axs[x, y].axis('equal')
-    axs[x, y].set_title(key)
+    axs[x, y].set_title(key, weight='semibold')
 
 def make_autopct(tot):
     def my_autopct(pct):
@@ -66,13 +66,15 @@ def make_autopct(tot):
         return '{p:.0f}% \n ({v:.2f})'.format(p=pct,v=val)
     return my_autopct
 
-def pie_legend(axs=None, coords=None):
+def pie_legend(axs=None, coords=None, posn=None):
     handles = []
     for c in range(len(pie_colors)):
         patch = mpatches.Patch(color=pie_colors[c], label=PID_pieces[c], alpha=.8)
         handles += [patch]
     if axs is None: plt.legend(handles=handles)
-    else: axs[coords[0],coords[1]].legend(handles=handles)
+    else:
+        if posn is None: axs[coords[0],coords[1]].legend(handles=handles)
+        else:  axs[coords[0],coords[1]].legend(handles=handles, loc=posn)
 
 
 def build_info_bars(Pr, Al):
