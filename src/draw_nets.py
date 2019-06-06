@@ -9,6 +9,25 @@ import plot_pieces
 # TODO: colored scatters for 3 features
 # TODO: color hidden nodes in draw by certain info features?
 
+
+############################## Organization ################################
+
+def set_of_nets(net_PIDs, node_PIDs, Gs, out_dir):
+    if not os.path.exists(out_dir):
+        print("\nCreating new directory for candidate nets at: " + str(out_dir) + '\n')
+        os.makedirs(out_dir)
+
+    if len(Gs) > 0: 
+        population(Gs, out_dir, net_PIDs)
+
+    for i in rng(Gs):
+        with_PID(Gs[i], out_dir, net_PIDs[i],node_PIDs[i], i)
+
+
+
+
+
+
 ############################### POPULATION ####################################
 
 def population(Gs, out_dir, PIDS):
@@ -95,6 +114,18 @@ def save_mult(Gs, out_dir):
         plt.clf()
 
         i+=1
+        '''
+        plot=True
+        for input in G.graph['inputs']:
+
+            if len(G.out_edges(input)) != 2: plot=False
+        if plot:
+            basic(G)
+            plt.savefig(out_dir + str(i))
+            plt.clf()
+
+            i+=1
+        '''
 
 def with_PID(G, out_dir,PID,ordered_pids, title):
     # assumes ordered_pids are ordered by hidden nodes, in net_evaluator.eval() this is true

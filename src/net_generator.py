@@ -1,6 +1,8 @@
 import networkx as nx, pickle,os
 from itertools import product
 from util import *
+import inform_nets
+from time import time 
 
 import examples, run_fwd, draw_nets, net_evaluator
 
@@ -32,46 +34,43 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
         elif i >= n - num_out: net.add_node(i,op='output')
         #else: net.add_node(i, op=None)
 
+    if debug: init_t = time()
     Gs = gen_Gs(net, net.graph['outputs'], net.graph['inputs'], hidden_nodes)
 
-    len_orig = len(Gs)
+    if debug: prev_t = time_n_print(init_t, Gs, 'generate Gs')
+
     Gs = rm_repeats(Gs)
-    len_trim = len(Gs)
-    if debug: print("\nOrigGs vs TrimmedGs lng = " + str(len_orig) + ' -> ' + str(len_trim))
+    if debug: prev_t = time_n_print(prev_t, Gs, 'trim Gs')
+
+    Gs = rm_hidden_repeats(Gs)
+    if debug: prev_t = time_n_print(prev_t, Gs, 'trim hidden inversions')
+
     #draw_nets.save_mult(Gs, out_dir)
     #assert(False)
 
-    Gs = rm_hidden_repeats(Gs)
-    if debug: print("\nAfter rm'g hidden inversions: " + str(len(Gs)))
-
     Gs = assign_op_combos(Gs)
-    len_final = len(Gs)
-    if debug: print("\nTrimmedGs vs ComboOpsGs lng = " + str(len_trim) + ' -> ' + str(len_final) + '\n')
+    if debug: prev_t = time_n_print(prev_t, Gs, 'assign op combos')
 
+    #Gs = rm_op_repeats(Gs)
+    print('\nWARNING: not filtering op repeats')
+    if debug: prev_t = time_n_print(prev_t, Gs, 'trim op combos')
 
     check(Gs)
-    picklem(Gs, out_dir, n)
+    inform_nets.picklem(Gs, out_dir, n)
     Gs = keep_correct(Gs, ex)
-    if debug: print("CorrectGs remaining lng = " + str(len(Gs)))
+    if debug: prev_t = time_n_print(prev_t, Gs, 'check and filter correct Gs')
 
     if draw: draw_nets.save_mult(Gs, out_dir)
 
     return Gs
 
 
-def from_pickle(out_dir, n, ex, debug=True):
-    Gs = pickle.load( open(out_dir + 'all_op_nets_size_' + str(n), "rb" ) )
-    print("Loaded " + str(len(Gs)) + " pickled nets, starting to consume...")
-    Gs = keep_correct(Gs, ex)
-    if debug: print("CorrectGs remaining lng = " + str(len(Gs)))
-    net_evaluator.eval(Gs, out_dir)
+def time_n_print(prev_t, Gs, name):
+    t= time()
+    print("\n# Gs = " + str(len(Gs)))
+    print("Time to " + name  + " = " + str(t - prev_t) + ' sec')
+    return t
 
-def picklem(Gs, out_dir, N):
-    # TODO: generalize pickle syntax and save after trimming for correctness
-    if not os.path.exists(out_dir):
-        print("\nCreating new directory for candidate nets at: " + str(out_dir) + '\n')
-        os.makedirs(out_dir)
-    pickle.dump(Gs, open(out_dir + 'all_op_nets_size_' + str(n), "wb"))
 
 def keep_correct(Gs, ex):
     correct_Gs = []
@@ -96,8 +95,10 @@ def rm_repeats(Gs):
 
     return Gs
 
-def rm_hidden_repeats(Gs):
+def rm_hidden_repeats(Gs, ops=False):
     #TODO: woah damn, clean this filthy ass mess
+    #TODO: likely cuts too many nets in the case of asym inputs...
+
     dels = []
     for i in range(len(Gs)):
         rmd = False
@@ -105,60 +106,44 @@ def rm_hidden_repeats(Gs):
             if rmd: break
             #TODO: poss for 2 acyclic nets with same in an out degrees for all hidden nodes to have different connectivity?
             if sorted(Gs[i].graph['hidden']) == sorted(Gs[j].graph['hidden']):
-                i_in_degs = [len(Gs[i].in_edges(h)) for h in sorted(Gs[i].graph['hidden'])]
-                j_in_degs = [len(Gs[j].in_edges(h)) for h in sorted(Gs[j].graph['hidden'])]
+                i_in_degs = [len(Gs[i].in_edges(h)) for h in sorted(list(Gs[i].nodes()))]
+                j_in_degs = [len(Gs[j].in_edges(h)) for h in sorted(list(Gs[j].nodes()))]
                 if i_in_degs == j_in_degs:
-                    i_out_degs = [len(Gs[i].out_edges(h)) for h in sorted(Gs[i].graph['hidden'])]
-                    j_out_degs = [len(Gs[j].out_edges(h)) for h in sorted(Gs[j].graph['hidden'])]
+                    i_out_degs = [len(Gs[i].out_edges(h)) for h in sorted(list(Gs[i].nodes()))]
+                    j_out_degs = [len(Gs[j].out_edges(h)) for h in sorted(list(Gs[j].nodes()))]
 
                     if i_out_degs == j_out_degs:
+                        same_paths=True
+                        for in_ in rng(Gs[i].graph['inputs']):
+                            for out_ in rng(Gs[i].graph['outputs']):
+                                input_i, output_i = sorted(Gs[i].graph['inputs'])[in_], sorted(Gs[i].graph['outputs'])[out_]
+                                input_j, output_j = sorted(Gs[j].graph['inputs'])[in_], sorted(Gs[j].graph['outputs'])[out_]
+                                
+                                paths_i, lng_paths_i = nx.all_simple_paths(Gs[i], input_i, output_i), []
+                                if ops: op_paths_i = []
+                                for p in paths_i: 
+                                    lng_paths_i += [len(p)]
+                                    if ops: op_paths_i += [[Gs[i].nodes[p[n]]['op'] for n in rng(p)]]
 
-                        #also need same in_edges from inputs
-                        i_inputs = []
-                        for h in sorted(Gs[i].graph['hidden']):
-                            this_hs_inputs = []
-                            for input in sorted(Gs[i].graph['inputs']):
-                                if (input,h) in Gs[i].in_edges(h):
-                                    this_hs_inputs += [input]
-                            if len(this_hs_inputs) == 0:
-                                this_hs_inputs = ['x']
-                            i_inputs += [this_hs_inputs]
+                                paths_j, lng_paths_j = nx.all_simple_paths(Gs[j], input_j, output_j), []
+                                if ops: op_paths_j = []
+                                for p in paths_j: 
+                                    lng_paths_j += [len(p)]
+                                    if ops: op_paths_j += [[Gs[j].nodes[p[n]]['op'] for n in rng(p)]]
 
-                        j_inputs = []
-                        for h in sorted(Gs[j].graph['hidden']):
-                            this_hs_inputs = []
-                            for input in sorted(Gs[j].graph['inputs']):
-                                if (input,h) in Gs[j].in_edges(h):
-                                    this_hs_inputs += [input]
-                            if len(this_hs_inputs) == 0:
-                                this_hs_inputs = ['x']
-                            j_inputs += [this_hs_inputs]
+                                if sorted(lng_paths_i) != sorted(lng_paths_j):
+                                    if ops:
+                                        if sorted(op_paths_i) != sorted(op_paths_j):
+                                            same_paths=False
+                                            break
+                                    else:
+                                        same_paths=False
+                                        break
 
-                        if i_inputs == j_inputs:
-                            # also need same out_edges to output
-                            i_outputs = []
-                            for h in sorted(Gs[i].graph['hidden']):
-                                this_hs_outputs = []
-                                for output in sorted(Gs[i].graph['outputs']):
-                                    if (h,output) in Gs[i].out_edges(h):
-                                        this_hs_outputs += [output]
-                                if len(this_hs_outputs) == 0:
-                                    this_hs_inputs = ['x']
-                                i_outputs += [this_hs_outputs]
+                        if same_paths:
+                            dels +=[i]
+                            rmd = True
 
-                            j_outputs = []
-                            for h in sorted(Gs[j].graph['hidden']):
-                                this_hs_outputs = []
-                                for output in sorted(Gs[j].graph['outputs']):
-                                    if (h,output) in Gs[j].out_edges(h):
-                                        this_hs_outputs += [output]
-                                if len(this_hs_outputs) == 0:
-                                    this_hs_inputs = ['x']
-                                j_outputs += [this_hs_outputs]
-
-                            if i_outputs == j_outputs:
-                                dels +=[i]
-                                rmd = True
 
     for d in range(len(dels)):
         del Gs[dels[d]]
@@ -173,12 +158,11 @@ def rm_op_repeats(Gs):
         rmd = False
         for j in range(i):
             if rmd: break
-            if Gs[i].edges() == Gs[j].edges():
+            if sorted(Gs[i].edges()) == sorted(Gs[j].edges()):
                 if Gs[i].nodes(data=True) == Gs[j].nodes(data=True):
                     dels += [i]
                     rmd = True
 
-    print("\nnet_generator.rm_op_repeats(): trimming " + str(len(dels)) + ' repeated op nets...')
     for d in range(len(dels)):
         del Gs[dels[d]]
         for e in range(len(dels)): dels[e]-=1
@@ -221,8 +205,6 @@ def assign_op_combos(Gs):
                 else: assert(False)
             Gs_opd += [pnet]
 
-    print("\nBefore rm_op_repeats, #Gs with op combos = " + str(len(Gs_opd)))
-    Gs_opd = rm_op_repeats(Gs_opd)
     return Gs_opd
 
 
@@ -321,15 +303,3 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, ve
 
 
 
-
-
-# TODO: turn this into command line use
-# just for testing purposes
-n = 6
-ex = 'and'
-output_path= 'C:/Users/Crbn/Documents/Code/Info/plots/candidate_nets_' + str(ex) + '/'
-use_pickle = False
-if use_pickle: from_pickle(output_path, n, ex)
-else:
-    Gs = gen_graphs(n,ex, output_path, debug=True, draw=False)
-    net_evaluator.eval(Gs, output_path)

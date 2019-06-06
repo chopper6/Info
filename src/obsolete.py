@@ -1,5 +1,57 @@
 
 
+def rm_hidden_repeats(Gs): 
+    # continuing from existing...
+    
+                        
+                        #TODO: maybe this is nec for asym inputs? curr incorrect though
+                        #also need same in_edges from inputs
+                        i_inputs = []
+                        for h in sorted(Gs[i].graph['hidden']):
+                            this_hs_inputs = []
+                            for input in sorted(Gs[i].graph['inputs']):
+                                if (input,h) in Gs[i].in_edges(h):
+                                    this_hs_inputs += [input]
+                            if len(this_hs_inputs) == 0:
+                                this_hs_inputs = ['x']
+                            i_inputs += [this_hs_inputs]
+
+                        j_inputs = []
+                        for h in sorted(Gs[j].graph['hidden']):
+                            this_hs_inputs = []
+                            for input in sorted(Gs[j].graph['inputs']):
+                                if (input,h) in Gs[j].in_edges(h):
+                                    this_hs_inputs += [input]
+                            if len(this_hs_inputs) == 0:
+                                this_hs_inputs = ['x']
+                            j_inputs += [this_hs_inputs]
+
+                        if i_inputs == j_inputs and False:
+                            # also need same out_edges to output
+                            i_outputs = []
+                            for h in sorted(Gs[i].graph['hidden']):
+                                this_hs_outputs = []
+                                for output in sorted(Gs[i].graph['outputs']):
+                                    if (h,output) in Gs[i].out_edges(h):
+                                        this_hs_outputs += [output]
+                                if len(this_hs_outputs) == 0:
+                                    this_hs_inputs = ['x']
+                                i_outputs += [this_hs_outputs]
+
+                            j_outputs = []
+                            for h in sorted(Gs[j].graph['hidden']):
+                                this_hs_outputs = []
+                                for output in sorted(Gs[j].graph['outputs']):
+                                    if (h,output) in Gs[j].out_edges(h):
+                                        this_hs_outputs += [output]
+                                if len(this_hs_outputs) == 0:
+                                    this_hs_inputs = ['x']
+                                j_outputs += [this_hs_outputs]
+
+                            if i_outputs == j_outputs:
+                                dels +=[i]
+                                rmd = True
+
 def build_XOR():
     if sys.argv[1] == 'XOR':
         all_i, output = examples.XOR_expanded()

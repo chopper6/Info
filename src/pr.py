@@ -69,7 +69,7 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
     assert(np.array(output).ndim == 1)
     assert(np.array(input).ndim == 2) #temp?
 
-    max_input = max(input[0])+1 #assumes all inputs have same max
+    max_input = max(max(input[1]),max(input[0]))+1 #assumes all inputs have same max
     max_output = max(output)+1  # +1 since these are values (if max = 1, there are two vals, 0 & 1)
 
     # first sets are for counting, aligned for ordering

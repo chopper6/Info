@@ -5,9 +5,8 @@ from util import *
 #TODO: reorganize to be cleaner with previous build?
 
 def eval(Gs,out_dir):
-    i=0
-    pid_keys = ['<i>x','<i>y']
-    PIDS = []
+    #pid_keys = ['<i>x','<i>y']
+    net_PIDs, node_PIDs = [], []
     for G in Gs:
         PIDs = []
         for j in rng(G.graph['hidden']):
@@ -23,10 +22,10 @@ def eval(Gs,out_dir):
                 output = G.nodes[G.graph['outputs'][0]]['hist']
                 PIDs += [eval_node_PID(G, input, output)]
 
-        PIDS += [merge_node_PIDs(PIDs)]
-        draw_nets.with_PID(G, out_dir, PIDS[-1],PIDs, i)
-        i+=1
-    if len(Gs) > 0: draw_nets.population(Gs, out_dir, PIDS)
+        net_PIDs += [merge_node_PIDs(PIDs)]
+        node_PIDs += [PIDs]
+
+    return net_PIDs, node_PIDs
 
 
 def merge_node_PIDs(PIDs):
