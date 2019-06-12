@@ -5,17 +5,11 @@ from util import *
 
 import plot_pieces
 
-# TODO: save nets before plotting and move plotting higher in net_evaluator (ie complete sep)
-# TODO: colored scatters for 3 features
-# TODO: color hidden nodes in draw by certain info features?
-
 
 ############################## Organization ################################
 
 def set_of_nets(net_PIDs, node_PIDs, Gs, out_dir):
-    if not os.path.exists(out_dir):
-        print("\nCreating new directory for candidate nets at: " + str(out_dir) + '\n')
-        os.makedirs(out_dir)
+    check_build_dir(out_dir)
 
     if len(Gs) > 0: 
         population(Gs, out_dir, net_PIDs)
@@ -55,9 +49,11 @@ def population(Gs, out_dir, PIDS):
             pass
 
     S_frac = [pid_for_plot['S'][i]/I[i] for i in rng(I)]
+    notR_frac = [1-pid_for_plot['R'][i]/I[i] for i in rng(I)]
     one_feature(num_edges, S_frac, '#Edges', 'S% ',out_dir)
     one_feature(num_nodes, S_frac, '#Nodes', 'S% ',out_dir)
     one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir,colorvec=S_frac, third_title='S%')
+    #one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir,colorvec=notR_frac, third_title='notR%')
     one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir,colorvec=[pid_for_plot['S'][i] for i in rng(I)], third_title='S')
     one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir, colorvec=I, third_title='Itot')
     one_feature(num_edges, I, '#Edges', 'Itot',out_dir)
@@ -102,9 +98,7 @@ def one_feature(x, y, x_title, y_title, out_dir, colorvec=None, showfig=False, t
 
 def save_mult(Gs, out_dir):
 
-    if not os.path.exists(out_dir):
-        print("\nCreating new directory for candidate nets at: " + str(out_dir) + '\n')
-        os.makedirs(out_dir)
+    check_build_dir(out_dir)
 
     plt.clf()
     i=0
@@ -130,10 +124,7 @@ def save_mult(Gs, out_dir):
 def with_PID(G, out_dir,PID,ordered_pids, title):
     # assumes ordered_pids are ordered by hidden nodes, in net_evaluator.eval() this is true
 
-
-    if not os.path.exists(out_dir):
-        print("\nCreating new directory for candidate nets at: " + str(out_dir) + '\n')
-        os.makedirs(out_dir)
+    check_build_dir(out_dir)
     plt.clf()
     fig, axs = plt.subplots(2, 3,figsize=(10,10))
     plot_pieces.one_pie(PID['min>x'], '<i>x', axs, 1, 0)
@@ -142,10 +133,25 @@ def with_PID(G, out_dir,PID,ordered_pids, title):
     axs[1, 1].axis('off')
 
     pid_keys = ordered_pids[0]['min>x'].keys()
-    colors_S = [ordered_pids[i]['min>x']['S']/sum(ordered_pids[i]['min>x'][k] for k in pid_keys) for i in rng(G.graph['hidden'])]
+
+    # generate sums, will div by, so set to 1 if 0 and make sure numer is 0
+    sums = [1 for i in rng(G.graph['hidden'])]
+    for i in rng(G.graph['hidden']):
+        if sum(ordered_pids[i]['min>x'][k] for k in pid_keys)==0:
+            assert(ordered_pids[i]['min>x']['S']==0)
+            assert(ordered_pids[i]['min>x']['R']==0)
+        else: sums[i] = sum(ordered_pids[i]['min>x'][k] for k in pid_keys)
+
+    colors_S = [ordered_pids[i]['min>x']['S']/sums[i] for i in rng(G.graph['hidden'])]
+
+    colors_notR = [1-ordered_pids[i]['min>x']['R']/sums[i] for i in rng(G.graph['hidden'])]
+    
+
+
     colors_I = [sum(ordered_pids[i]['min>x'][k] for k in pid_keys) for i in rng(G.graph['hidden'])]
     basic_spc_ax(G, axs, [0,0], hcolors=colors_S, title='S%')
     basic_spc_ax(G, axs, [0, 2], hcolors=colors_I, title='Info')
+    #basic_spc_ax(G, axs, [0, 2], hcolors=colors_notR, title='NotR%')
     nets_cbar(colors_I, 'plasma', axs, [0,1], fig)
     axs[0,1].axis('off')
 

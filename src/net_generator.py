@@ -8,8 +8,6 @@ import examples, run_fwd, draw_nets, net_evaluator
 
 # TODO: a healthy dose of test-based debugging
 # TODO: poss seperate this completely from the PID tester? or at least diff subfolders?
-# TODO: scaling issues, too many combo['op'] graphs, leading to v slow keep_correct()
-
 
 # input nodes: no op, they given the input of the example
 # output nodes: no op, they receive 1 input edge and compare to the output
@@ -42,7 +40,7 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
     Gs = rm_repeats(Gs)
     if debug: prev_t = time_n_print(prev_t, Gs, 'trim Gs')
 
-    Gs = rm_hidden_repeats(Gs)
+    Gs = rm_hidden_repeats(Gs) #, in_out_too=True)
     if debug: prev_t = time_n_print(prev_t, Gs, 'trim hidden inversions')
 
     #draw_nets.save_mult(Gs, out_dir)
@@ -53,11 +51,12 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
 
     #Gs = rm_op_repeats(Gs)
     print('\nWARNING: not filtering op repeats')
-    if debug: prev_t = time_n_print(prev_t, Gs, 'trim op combos')
+    #if debug: prev_t = time_n_print(prev_t, Gs, 'trim op combos')
 
     check(Gs)
     inform_nets.picklem(Gs, out_dir, n)
     Gs = keep_correct(Gs, ex)
+    inform_nets.picklem(Gs, out_dir, n, ex=ex)
     if debug: prev_t = time_n_print(prev_t, Gs, 'check and filter correct Gs')
 
     if draw: draw_nets.save_mult(Gs, out_dir)
@@ -85,9 +84,11 @@ def rm_repeats(Gs):
         rmd = False
         for j in range(i):
             if rmd: break
-            if Gs[i].edges() == Gs[j].edges():
+
+            elif Gs[i].edges() == Gs[j].edges():
                 dels += [i]
                 rmd = True
+
 
     for d in range(len(dels)):
         del Gs[dels[d]]
@@ -95,17 +96,20 @@ def rm_repeats(Gs):
 
     return Gs
 
-def rm_hidden_repeats(Gs, ops=False):
+def rm_hidden_repeats(Gs, ops=False, in_out_too = False):
     #TODO: woah damn, clean this filthy ass mess
     #TODO: likely cuts too many nets in the case of asym inputs...
-
+    assert(not in_out_too) #breaks XOR
     dels = []
     for i in range(len(Gs)):
         rmd = False
         for j in range(i):
             if rmd: break
             #TODO: poss for 2 acyclic nets with same in an out degrees for all hidden nodes to have different connectivity?
-            if sorted(Gs[i].graph['hidden']) == sorted(Gs[j].graph['hidden']):
+            if in_out_too: i_nodes, j_nodes = sorted(list(Gs[i].nodes())), sorted(list(Gs[j].nodes()))
+            else:  i_nodes, j_nodes = sorted(Gs[i].graph['hidden']), sorted(Gs[j].graph['hidden'])
+
+            if i_nodes == j_nodes:
                 i_in_degs = [len(Gs[i].in_edges(h)) for h in sorted(list(Gs[i].nodes()))]
                 j_in_degs = [len(Gs[j].in_edges(h)) for h in sorted(list(Gs[j].nodes()))]
                 if i_in_degs == j_in_degs:
@@ -114,31 +118,32 @@ def rm_hidden_repeats(Gs, ops=False):
 
                     if i_out_degs == j_out_degs:
                         same_paths=True
-                        for in_ in rng(Gs[i].graph['inputs']):
-                            for out_ in rng(Gs[i].graph['outputs']):
-                                input_i, output_i = sorted(Gs[i].graph['inputs'])[in_], sorted(Gs[i].graph['outputs'])[out_]
-                                input_j, output_j = sorted(Gs[j].graph['inputs'])[in_], sorted(Gs[j].graph['outputs'])[out_]
-                                
-                                paths_i, lng_paths_i = nx.all_simple_paths(Gs[i], input_i, output_i), []
-                                if ops: op_paths_i = []
-                                for p in paths_i: 
-                                    lng_paths_i += [len(p)]
-                                    if ops: op_paths_i += [[Gs[i].nodes[p[n]]['op'] for n in rng(p)]]
+                        if not in_out_too:
+                            for in_ in rng(Gs[i].graph['inputs']):
+                                for out_ in rng(Gs[i].graph['outputs']):
+                                    input_i, output_i = sorted(Gs[i].graph['inputs'])[in_], sorted(Gs[i].graph['outputs'])[out_]
+                                    input_j, output_j = sorted(Gs[j].graph['inputs'])[in_], sorted(Gs[j].graph['outputs'])[out_]
+                                    
+                                    paths_i, lng_paths_i = nx.all_simple_paths(Gs[i], input_i, output_i), []
+                                    if ops: op_paths_i = []
+                                    for p in paths_i: 
+                                        lng_paths_i += [len(p)]
+                                        if ops: op_paths_i += [[Gs[i].nodes[p[n]]['op'] for n in rng(p)]]
 
-                                paths_j, lng_paths_j = nx.all_simple_paths(Gs[j], input_j, output_j), []
-                                if ops: op_paths_j = []
-                                for p in paths_j: 
-                                    lng_paths_j += [len(p)]
-                                    if ops: op_paths_j += [[Gs[j].nodes[p[n]]['op'] for n in rng(p)]]
+                                    paths_j, lng_paths_j = nx.all_simple_paths(Gs[j], input_j, output_j), []
+                                    if ops: op_paths_j = []
+                                    for p in paths_j: 
+                                        lng_paths_j += [len(p)]
+                                        if ops: op_paths_j += [[Gs[j].nodes[p[n]]['op'] for n in rng(p)]]
 
-                                if sorted(lng_paths_i) != sorted(lng_paths_j):
-                                    if ops:
-                                        if sorted(op_paths_i) != sorted(op_paths_j):
+                                    if sorted(lng_paths_i) != sorted(lng_paths_j):
+                                        if ops:
+                                            if sorted(op_paths_i) != sorted(op_paths_j):
+                                                same_paths=False
+                                                break
+                                        else:
                                             same_paths=False
                                             break
-                                    else:
-                                        same_paths=False
-                                        break
 
                         if same_paths:
                             dels +=[i]
@@ -153,15 +158,41 @@ def rm_hidden_repeats(Gs, ops=False):
 
 
 def rm_op_repeats(Gs):
+    assert(False) # curr broken/no effect
     dels = []
     for i in range(len(Gs)):
         rmd = False
         for j in range(i):
             if rmd: break
-            if sorted(Gs[i].edges()) == sorted(Gs[j].edges()):
-                if Gs[i].nodes(data=True) == Gs[j].nodes(data=True):
-                    dels += [i]
-                    rmd = True
+            diff = False
+            for ni in Gs[i].nodes():
+                if diff: break #already found diff between them
+                # see if this node has a mirror in net j
+                for nj in Gs[j].nodes():
+                    # if two nodes share same inputs and outputs
+                    # don't include themselves since could be inversions of one another
+                    in_i, in_j = sorted(Gs[i].in_edges(ni)),  sorted(Gs[j].in_edges(nj))
+                    if ni in in_j: in_j.remove(ni)
+                    if nj in in_i: in_i.remove(nj)
+                    if in_i == in_j:  
+                        out_i, out_j = sorted(Gs[i].out_edges(ni)), sorted(Gs[j].out_edges(nj))
+                        if ni in out_j: out_j.remove(ni)
+                        if nj in out_i: out_i.remove(nj)
+                        if out_i == out_j:
+                             if Gs[i].nodes[ni]['op'] != Gs[j].nodes[nj]['op']:
+                                diff=True
+                                break
+                        else: 
+                            diff =True
+                            break
+                    else: 
+                        diff =True
+                        break
+
+            #if sorted(Gs[i].edges()) == sorted(Gs[j].edges()):
+            #    if Gs[i].nodes(data=True) == Gs[j].nodes(data=True):
+            #        dels += [i]
+            #        rmd = True
 
     for d in range(len(dels)):
         del Gs[dels[d]]
@@ -260,7 +291,13 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, ve
 
         if not done:
             # try starting with all input_nodes
+            chosen=None
             for i in range(len(input_nodes)):
+                if not net_orig.has_edge(input_nodes[i],target_nodes[t]):
+                    chosen=i 
+                    break
+
+            if chosen is not None:
                 if not net_orig.has_edge(input_nodes[i], target_nodes[t]):
                     net = net_orig.copy()
                     net.add_edge(input_nodes[i],target_nodes[t])
@@ -273,8 +310,14 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, ve
                         # try again with same target node with new input node attached
                         Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes)
 
-
+            chosen = None
             for i in range(len(hidden_nodes)):
+                if not net_orig.has_edge(hidden_nodes[i],target_nodes[t]):
+                    chosen=i 
+                    break
+
+            if chosen is not None:
+                i=chosen
                 if not net_orig.has_edge(hidden_nodes[i],target_nodes[t]):
                     net = net_orig.copy()
 

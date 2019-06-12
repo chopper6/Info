@@ -5,9 +5,9 @@ from math import log
 
 log_base = 2
 
-def h(pr,a):
+def h(pr,a,logbase=2):
     # h(a)
-    return -1*log(pr[a], log_base)
+    return -1*log(pr[a], logbase)
 
 def h_cond(pr,a,b):
     # h(a|b)
@@ -65,9 +65,9 @@ def partial_info_1of3(Pr,Al,a,b,c,inst):
 
 ########################################### WHOLE #################################################
 
-def H(Pr, a):
+def H(Pr, a, logbase=2):
     num_inst = len(Pr)
-    H = sum(h(Pr[i], a) for i in range(num_inst)) / num_inst
+    H = sum(h(Pr[i], a,logbase=logbase) for i in range(num_inst)) / num_inst
     return H
 
 def H_cond(Pr,a,b):
