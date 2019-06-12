@@ -1,5 +1,48 @@
 
 
+
+def rm_op_repeats(Gs):
+    #assert(False) # curr broken/no effect
+    dels = []
+    for i in range(len(Gs)):
+        rmd = False
+        for j in range(i):
+            if rmd: break
+            diff = False
+            for ni in Gs[i].nodes():
+                if diff: break #already found diff between them
+                # see if this node has a mirror in net j
+                for nj in Gs[j].nodes():
+                    # if two nodes share same inputs and outputs
+                    # don't include themselves since could be inversions of one another
+                    in_i, in_j = sorted(Gs[i].in_edges(ni)),  sorted(Gs[j].in_edges(nj))
+                    if ni in in_j: in_j.remove(ni)
+                    if nj in in_i: in_i.remove(nj)
+                    if in_i == in_j:  
+                        out_i, out_j = sorted(Gs[i].out_edges(ni)), sorted(Gs[j].out_edges(nj))
+                        if ni in out_j: out_j.remove(ni)
+                        if nj in out_i: out_i.remove(nj)
+                        if out_i == out_j:
+                             if Gs[i].nodes[ni]['op'] != Gs[j].nodes[nj]['op']:
+                                diff=True
+                                break
+                        else: 
+                            diff =True
+                            break
+                    else: 
+                        diff =True
+                        break
+
+    for d in range(len(dels)):
+        del Gs[dels[d]]
+        for e in range(len(dels)): dels[e]-=1
+
+    return Gs
+
+
+
+
+
 def rm_hidden_repeats(Gs): 
     # continuing from existing...
     

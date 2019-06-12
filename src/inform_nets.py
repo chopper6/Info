@@ -4,14 +4,14 @@ from util import *
 
 
 
-def all_combos(n, ex, output_path, pickle_type=None):
+def all_combos(n, ex, protocol, output_path, pickle_type=None):
     orig_output_path = output_path
     output_path = output_path + 'candidates_' + str(ex) + '/'
 
     if pickle_type:
         Gs = from_pickle(orig_output_path + 'pickled_nets/', n, ex, pickle_type) 
     else:
-        Gs = net_generator.gen_graphs(n, ex, output_path, debug=True, draw=False)
+        Gs = net_generator.gen_graphs(n, ex, output_path, debug=True, draw=False,protocol=protocol)
     
     if len(Gs) > 0:
         net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path)
@@ -57,14 +57,14 @@ def picklem(Gs, out_dir, n, ex=None, chkpt=''):
 
 if __name__ == "__main__":
 
-    assert(len(sys.argv) in [3,4]) # args should be: ex, n, [pickle]
+    assert(len(sys.argv) in [4,5]) # args should be: ex, n, [pickle]
 
     output_path= 'C:/Users/Crbn/Documents/Code/Info/plots/'
-    ex, n = sys.argv[1], int(sys.argv[2])
-    if len(sys.argv)==4: 
+    ex, n, protocol = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+    if len(sys.argv)==5: 
         pickle_type=sys.argv[3]
     else: pickle_type = None
     print("\nInforming all combos on example " + str(ex) + ' with graphs max|n| = ' + str(n) + '\n')
-    all_combos(n, ex, output_path, pickle_type=pickle_type)
+    all_combos(n, ex, protocol, output_path, pickle_type=pickle_type)
 
     print("\nDone.\n")

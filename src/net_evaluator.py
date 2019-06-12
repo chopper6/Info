@@ -39,9 +39,6 @@ def merge_node_PIDs(PIDs):
 		for k in pid.keys():
 			for p in pid[k].keys():
 				PID_total[k][p] += pid[k][p]
-	#for k in pid.keys():
-	#	for p in pid[k].keys():
-	#		PID_total[k][p] /= len(PIDs)
 
 	return PID_total
 

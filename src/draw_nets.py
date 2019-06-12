@@ -1,10 +1,12 @@
 import networkx as nx, os
 from matplotlib import cm
 from matplotlib import pyplot as plt
+import matplotlib.patches as mpatches
 from util import *
 
 import plot_pieces
 
+EDGE_OP_COLORS = ['#336699','#660066']
 
 ############################## Organization ################################
 
@@ -95,18 +97,8 @@ def save_mult(Gs, out_dir):
         plt.clf()
 
         i+=1
-        '''
-        plot=True
-        for input in G.graph['inputs']:
 
-            if len(G.out_edges(input)) != 2: plot=False
-        if plot:
-            basic(G)
-            plt.savefig(out_dir + str(i))
-            plt.clf()
 
-            i+=1
-        '''
 
 def with_PID(G, out_dir,PID,ordered_pids, title):
     # assumes ordered_pids are ordered by hidden nodes, in net_evaluator.eval() this is true
@@ -116,7 +108,7 @@ def with_PID(G, out_dir,PID,ordered_pids, title):
     fig, axs = plt.subplots(2, 3,figsize=(10,10))
     plot_pieces.one_pie(PID['min>x'], '<i>x', axs, 1, 0)
     plot_pieces.one_pie(PID['min>y'], '<i>y', axs, 1, 2)
-    plot_pieces.pie_legend(axs=axs,coords=[1,1], posn='center')
+    pie_legend = plot_pieces.pie_legend(axs=axs,coords=[1,1], posn='lower left',title='PID Pie')
     axs[1, 1].axis('off')
 
     pid_keys = ordered_pids[0]['min>x'].keys()
@@ -150,7 +142,11 @@ def with_PID(G, out_dir,PID,ordered_pids, title):
     basic_spc_ax(G, axs, [0, 1], hcolors=colors_I, title='Info')
     #basic_spc_ax(G, axs, [0, 2], hcolors=colors_notR, title='NotR%')
     nets_cbar(colors_I, 'plasma', axs, [1,1], fig)
+    nets_legend(axs,[1,1])
+    axs[1,1].add_artist(pie_legend)
+
     axs[1,1].axis('off')
+
 
     fig.suptitle(title, size=20)
     plt.savefig(out_dir + str(title))
@@ -165,12 +161,29 @@ def nets_cbar(hcolors, cmap_choice, ax, coords, fig):
     im.set_visible(False)
     plt.colorbar(im, ax=ax[coords[0], coords[1]])
 
+
+def nets_legend(ax,coords, posn='upper left'):
+    handles = []
+    handles += [mpatches.Patch(color=EDGE_OP_COLORS[0], label='id', alpha=1)]
+    handles += [mpatches.Patch(color=EDGE_OP_COLORS[1], label='not', alpha=1)]
+
+    if posn is None: ax[coords[0],coords[1]].legend(handles=handles, title='Edge Ops')
+    else:  ax[coords[0],coords[1]].legend(handles=handles, loc=posn, title='Edge Ops')
+
+
+
 def basic_spc_ax(net, ax, coords,  showfig=False, hcolors=None, title=None, cbar=False):
     pos = nx.circular_layout(net)  # positions for all nodes
     node_size, nalpha = 800, .6
     # plt.figure(1)
+    elist = list(net.edges())
+    ecolors = []
+    for i in rng(elist):
+        e = elist[i]
+        if net[e[0]][e[1]]['op'] == 'id': ecolors += [EDGE_OP_COLORS[0]]
+        else: ecolors += [EDGE_OP_COLORS[1]]
 
-    nx.draw_networkx_edges(net, pos, arrows=True, ax=ax[coords[0], coords[1]])
+    nx.draw_networkx_edges(net, pos, arrows=True, ax=ax[coords[0], coords[1]], edgelist=elist, edge_color=ecolors)
     nx.draw_networkx_nodes(net, pos,
                            nodelist=net.graph['inputs'],
                            node_color='grey',

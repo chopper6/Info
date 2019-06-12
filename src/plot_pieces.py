@@ -66,16 +66,16 @@ def make_autopct(tot):
         return '{p:.0f}% \n ({v:.2f})'.format(p=pct,v=val)
     return my_autopct
 
-def pie_legend(axs=None, coords=None, posn=None):
+def pie_legend(axs=None, coords=None, posn=None, title=None):
     handles = []
     for c in range(len(pie_colors)):
         patch = mpatches.Patch(color=pie_colors[c], label=PID_pieces[c], alpha=.8)
         handles += [patch]
-    if axs is None: plt.legend(handles=handles)
+    if axs is None: lgd = plt.legend(handles=handles, title=title)
     else:
-        if posn is None: axs[coords[0],coords[1]].legend(handles=handles)
-        else:  axs[coords[0],coords[1]].legend(handles=handles, loc=posn)
-
+        if posn is None: lgd =axs[coords[0],coords[1]].legend(handles=handles,title=title)
+        else: lgd= axs[coords[0],coords[1]].legend(handles=handles, loc=posn,title=title)
+    return lgd
 
 def build_info_bars(Pr, Al):
     # shows partial info decomp by instances

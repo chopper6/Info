@@ -50,6 +50,7 @@ def init(net):
 
 
 def fwd_pass(net, ex, instance):
+    # edge ops ASSUME binary (otherwise what is 'not'?)
     # activate nodes that have received all their inputs
     for n in net.nodes():
         activate(net,n, ex, instance)
@@ -59,7 +60,12 @@ def fwd_pass(net, ex, instance):
         if net.nodes[n]['out'] is not None:
             for e in net.out_edges(n):
                 assert(n==e[0])
-                net[n][e[1]]['out'] = net.nodes[n]['out']
+
+                if net[e[0]][e[1]]['op'] == 'id':
+                    net[n][e[1]]['out'] = net.nodes[n]['out']
+                else: #op == 'not'
+                    net[n][e[1]]['out'] = 1-net.nodes[n]['out']
+                assert(net[n][e[1]]['out'] == 0 or net[n][e[1]]['out'] == 1)
 
 
 def eval(net, output, instance):
