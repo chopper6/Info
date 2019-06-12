@@ -6,13 +6,16 @@ from util import *
 
 def eval(Gs,out_dir):
 	#pid_keys = ['<i>x','<i>y']
+
+	hnormz = True
+
 	net_PIDs, node_PIDs = [], []
 	for G in Gs:
 		PIDs = []
 		for j in rng(G.graph['hidden']):
 			n = G.graph['hidden'][j]
 			if len(G.in_edges(n)) == 2:
-				PIDs += [eval_node_horz_PID(G,n)]
+				PIDs += [eval_node_horz_PID(G,n,hnormz = hnormz)]
 
 			# nodes with 1 edge have entirely unique1 info
 			if len(G.in_edges(n)) == 1:
@@ -22,7 +25,7 @@ def eval(Gs,out_dir):
 				input = [G.nodes[e1]['hist'], dummy_input]
 				#output = G.nodes[G.graph['outputs'][0]]['hist']
 				output = G.nodes[n]['hist']
-				PIDs += [eval_node_PID(G, input, output,x1x2logbase=2)]
+				PIDs += [eval_node_PID(G, input, output,hnormz = hnormz, x1x2logbase=2)]
 
 		net_PIDs += [merge_node_PIDs(PIDs)]
 		node_PIDs += [PIDs]
@@ -36,12 +39,15 @@ def merge_node_PIDs(PIDs):
 		for k in pid.keys():
 			for p in pid[k].keys():
 				PID_total[k][p] += pid[k][p]
+	#for k in pid.keys():
+	#	for p in pid[k].keys():
+	#		PID_total[k][p] /= len(PIDs)
 
 	return PID_total
 
 
 
-def eval_node_horz_PID(net,node):
+def eval_node_horz_PID(net,node, hnormz=False):
 	assert(len(net.graph['outputs']) == 1)
 
 	es = list(net.in_edges(node))
@@ -50,7 +56,7 @@ def eval_node_horz_PID(net,node):
 	#output = net.nodes[net.graph['outputs'][0]]['hist']
 	output = net.nodes[node]['hist']
 
-	return eval_node_PID(net, input, output)
+	return eval_node_PID(net, input, output, hnormz=hnormz)
 
 
 def eval_node_vert_PIDs(net, node):
@@ -65,7 +71,7 @@ def eval_node_vert_PIDs(net, node):
 		PIDs += [eval_node_PID(net,input,output)]
 	return PIDs
 
-def eval_node_PID(net,input,output,x1x2logbase=4):
+def eval_node_PID(net,input,output,hnormz=False, x1x2logbase=4):
 	assert(len(net.graph['outputs']) == 1)
 	num_inst = len(input[0])
 
@@ -79,13 +85,13 @@ def eval_node_PID(net,input,output,x1x2logbase=4):
 	Pr, p_keys = pr.build_p_atoms(pr_y, pr_x, pr_xx, pr_xy, pr_xxy, num_inst)
 
 	# PID candidates
-	Rs = R(Pr, Al, num_inst)
-	PIDs = PID_decompose(Rs, Pr, print_PID=False, x1x2logbase=x1x2logbase)
+	Rs = R(Pr, Al, num_inst, hnormz=hnormz)
+	PIDs = PID_decompose(Rs, Pr, print_PID=False, hnormz=hnormz, x1x2logbase=x1x2logbase)
 	return PIDs
 
 
 
-def R(Pr, Al, num_inst):
+def R(Pr, Al, num_inst, hnormz=False):
 	#TODO: add back some candidates that I like less to compare with
 
 	# requires a set of alphabets and probabilities
@@ -106,12 +112,13 @@ def R(Pr, Al, num_inst):
 			r[i]['min>x'] = 0
 			r[i]['min>y'] = 0
 		else: 
-			#r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
-			r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i)/h(Pr[i],'x1'),partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x2'))
-
+			if hnormz: r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i)/h(Pr[i],'x1'),partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x2'))
+			else: r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
+			
 			# PARTIAL Y
-			#r[i]['min>y'] = min(partial_info(Pr, Al,'x1','y', i), partial_info(Pr, Al, 'x2','y', i))
-			r[i]['min>y'] = min(partial_info(Pr, Al,'x1','y', i)/h(Pr[i],'y'), partial_info(Pr, Al, 'x2','y', i)/h(Pr[i],'y'))
+			if hnormz: r[i]['min>y'] = min(partial_info(Pr, Al,'x1','y', i)/h(Pr[i],'y'), partial_info(Pr, Al, 'x2','y', i)/h(Pr[i],'y'))
+			else: r[i]['min>y'] = min(partial_info(Pr, Al,'x1','y', i), partial_info(Pr, Al, 'x2','y', i))
+			
 
 	# AVERAGE pointwise r -> R
 	R = {k: 0 for k in cand_keys}
@@ -124,26 +131,31 @@ def R(Pr, Al, num_inst):
 	return R
 
 
-def PID_decompose(R, Pr, print_PID=True, normz=True, x1x2logbase=4):
+def PID_decompose(R, Pr, print_PID=True, hnormz=False, x1x2logbase=4):
 	# note that earlier sense of R[i] would have to be avg'd for R
 
 
-	if Info(Pr,'x1','y')==0:	
-		U1 = 0
-	else: 
-		U1 = Info(Pr,'x1','y')/H(Pr,'x1')
-	if Info(Pr,'x2','y')==0:
-		U2 = 0
-	else: 
-		U2 = Info(Pr,'x2','y')/H(Pr,'x2')
-	if Info(Pr,'x1,x2','y')==0: 	
-		S=0
-	else: 
-		S=Info(Pr,'x1,x2','y')/H(Pr,'x1,x2',logbase=x1x2logbase)
+	U1, U2, S =  Info(Pr,'x1','y'),  Info(Pr,'x2','y'), Info(Pr,'x1,x2','y')
+
+	if hnormz:
+
+		if Info(Pr,'x1','y')!=0:	
+			U1y = U1/H(Pr,'y')
+			U1 /= H(Pr,'x1')
+		else: U1y=U1
+		if Info(Pr,'x2','y')!=0:
+			U2y = U2/H(Pr,'y')
+			U2 /= H(Pr,'x2')
+		else: U2y=U2
+		if Info(Pr,'x1,x2','y')!=0: 
+			Sy = S/	H(Pr,'y')
+			S /= H(Pr,'x1,x2',logbase=x1x2logbase)
+		else:Sy=S
 
 
 	PID = {k:{'R':R[k], 'U1':U1, 'U2':U2, 'S':S}
 		   for k in R.keys()}
+	if hnormz: PID['min>y'] = {'R':R['min>y'], 'U1':U1y, 'U2':U2y, 'S':Sy}
 
 	for k in PID.keys():
 

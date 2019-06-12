@@ -15,7 +15,7 @@ def all_combos(n, ex, output_path, pickle_type=None):
     
     if len(Gs) > 0:
         net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path)
-        draw_nets.set_of_nets(net_PIDs, node_PIDs, Gs, output_path)
+        draw_nets.set_of_nets(net_PIDs, node_PIDs, Gs, output_path, n)
     else:
         print("\nWARNING: no viable networks were returned so no plots were generated ... ):\n")
 
@@ -36,16 +36,22 @@ def from_pickle(out_dir, n, ex, pickle_type, debug=True):
         Gs = pickle.load( open(out_dir + 'all_nets_size_' + str(n) + '_filtered_' + str(ex), "rb" ) )
         print("Loaded " + str(len(Gs)) + " pickled nets, using directly for plotting...")
     
+    elif pickle_type == 'pre-combos':
+        Gs = pickle.load( open(out_dir + 'all_nets_size_' + str(n) + '_precombos', "rb" ) )
+
     else: assert(False) #unknown pickle_type arg
 
     return Gs
 
 
-def picklem(Gs, out_dir, n, ex=None):
+def picklem(Gs, out_dir, n, ex=None, chkpt=''):
+
     check_build_dir(out_dir)
     path = out_dir + 'all_nets_size_' + str(n)
+    if chkpt=='pre-combos': path += '_precombos'
     if ex is not None: path += '_filtered_' + str(ex)
     pickle.dump(Gs, open(path, "wb"))
+    print("\nPickled nets to " + str(path))
 
 
 

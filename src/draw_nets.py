@@ -8,11 +8,11 @@ import plot_pieces
 
 ############################## Organization ################################
 
-def set_of_nets(net_PIDs, node_PIDs, Gs, out_dir):
+def set_of_nets(net_PIDs, node_PIDs, Gs, out_dir, N):
     check_build_dir(out_dir)
 
     if len(Gs) > 0: 
-        population(Gs, out_dir, net_PIDs)
+        population(Gs, out_dir, net_PIDs, N)
 
     for i in rng(Gs):
         with_PID(Gs[i], out_dir, net_PIDs[i],node_PIDs[i], i)
@@ -24,45 +24,32 @@ def set_of_nets(net_PIDs, node_PIDs, Gs, out_dir):
 
 ############################### POPULATION ####################################
 
-def population(Gs, out_dir, PIDS):
+def population(Gs, out_dir, PIDS, N):
     #TODO: add min>y
+
     pid_keys = PIDS[0]['min>x'].keys()
     assert(len(Gs) == len(PIDS))
     num_nodes = [len(Gs[i].nodes()) for i in range(len(Gs))] #index since order matters
     num_edges = [len(Gs[i].edges()) for i in range(len(Gs))]
     I = [sum([PIDS[i]['min>x'][p] for p in pid_keys]) for i in range(len(PIDS))]
+    I_per_node = [I[i]/num_nodes[i] for i in range(len(PIDS))]
     pid_for_plot = { p : [PIDS[i]['min>x'][p] for i in range(len(PIDS))] for p in pid_keys}
 
-    numers = [num_nodes, num_edges, I] + [pid_for_plot[p] for p in pid_keys]
-    numer_titles = ['# Nodes', '# Edges', 'Total Information'] + [p for p in PIDS[0].keys()]
-    denoms = [num_nodes, num_edges, I]
-    denom_titles = ['# Nodes', '# Edges', 'Total Information']
-
-    x = [[numers[i][k] / denoms[j][k] for k in rng(numers[i])] for i in rng(numers) for j in rng(denoms)] + denoms
-
-    x_titles = [[numer_titles[i] , denom_titles[j]] for i in rng(numer_titles) for j in rng(denom_titles)] + denom_titles
-
-    #TODO: this is overkill
-    for i in rng(x):
-        for j in rng(x):
-            #one_feature(x[i], x[j],x_titles[i],x_titles[j])
-            pass
-
     S_frac = [pid_for_plot['S'][i]/I[i] for i in rng(I)]
-    notR_frac = [1-pid_for_plot['R'][i]/I[i] for i in rng(I)]
-    one_feature(num_edges, S_frac, '#Edges', 'S% ',out_dir)
-    one_feature(num_nodes, S_frac, '#Nodes', 'S% ',out_dir)
-    one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir,colorvec=S_frac, third_title='S%')
-    #one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir,colorvec=notR_frac, third_title='notR%')
-    one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir,colorvec=[pid_for_plot['S'][i] for i in rng(I)], third_title='S')
-    one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir, colorvec=I, third_title='Itot')
-    one_feature(num_edges, I, '#Edges', 'Itot',out_dir)
-    one_feature(num_nodes, I, '#Nodes', 'Itot',out_dir)
-    # TODO: seems some discrepancy btwn 2-way and 3-way plots...
+    notR_frac = [1-pid_for_plot['R'][i]/I[i] for i in rng(I)] #could use again as a feature, but doubt it
 
-def one_feature(x, y, x_title, y_title, out_dir, colorvec=None, showfig=False, third_title=None):
+    features, titles = [I_per_node, S_frac], ['Info','S%'] 
+    for f in rng(features):
+        one_feature(num_edges, features[f], '#Edges', titles[f],out_dir, N)
+        one_feature(num_nodes, features[f], '#Nodes', titles[f],out_dir, N)
 
-    # TODO: some form of annotation?
+        # TODO: these 3way plots hide some details of the 2 way plots
+        one_feature(num_edges, num_nodes, '#Edges', '#Nodes', out_dir, N, colorvec=features[f], third_title=titles[f])
+    
+
+def one_feature(x, y, x_title, y_title, out_dir, N, colorvec=None, showfig=False, third_title=None):
+
+    # TODO: 3-way plots could use improvement 
 
     alpha = .2
     if len(x_title) == 2: x_title = x_title[0] + '_div_' + x_title[1]
@@ -85,7 +72,7 @@ def one_feature(x, y, x_title, y_title, out_dir, colorvec=None, showfig=False, t
     plt.ylabel(y_title)
 
     if showfig: plt.show()
-    else: plt.savefig(out_dir + title.replace(' ','_'))
+    else: plt.savefig(out_dir + 'N' + str(N) + '_' + title.replace(' ','_'))
     plt.cla()
     plt.clf()
     plt.close()
@@ -142,18 +129,28 @@ def with_PID(G, out_dir,PID,ordered_pids, title):
             assert(ordered_pids[i]['min>x']['R']==0)
         else: sums[i] = sum(ordered_pids[i]['min>x'][k] for k in pid_keys)
 
-    colors_S = [ordered_pids[i]['min>x']['S']/sums[i] for i in rng(G.graph['hidden'])]
+    colors_Sx = [ordered_pids[i]['min>x']['S']/sums[i] for i in rng(G.graph['hidden'])]
 
-    colors_notR = [1-ordered_pids[i]['min>x']['R']/sums[i] for i in rng(G.graph['hidden'])]
+
+    sums = [1 for i in rng(G.graph['hidden'])]
+    for i in rng(G.graph['hidden']):
+        if sum(ordered_pids[i]['min>y'][k] for k in pid_keys)==0:
+            assert(ordered_pids[i]['min>y']['S']==0)
+            assert(ordered_pids[i]['min>y']['R']==0)
+        else: sums[i] = sum(ordered_pids[i]['min>y'][k] for k in pid_keys)
+
+    colors_Sy = [ordered_pids[i]['min>y']['S']/sums[i] for i in rng(G.graph['hidden'])]
+
+    #colors_notR = [1-ordered_pids[i]['min>x']['R']/sums[i] for i in rng(G.graph['hidden'])]
     
 
-
     colors_I = [sum(ordered_pids[i]['min>x'][k] for k in pid_keys) for i in rng(G.graph['hidden'])]
-    basic_spc_ax(G, axs, [0,0], hcolors=colors_S, title='S%')
-    basic_spc_ax(G, axs, [0, 2], hcolors=colors_I, title='Info')
+    basic_spc_ax(G, axs, [0,0], hcolors=colors_Sx, title='S%>x')
+    basic_spc_ax(G, axs, [0, 2], hcolors=colors_Sy, title='S%>y')
+    basic_spc_ax(G, axs, [0, 1], hcolors=colors_I, title='Info')
     #basic_spc_ax(G, axs, [0, 2], hcolors=colors_notR, title='NotR%')
-    nets_cbar(colors_I, 'plasma', axs, [0,1], fig)
-    axs[0,1].axis('off')
+    nets_cbar(colors_I, 'plasma', axs, [1,1], fig)
+    axs[1,1].axis('off')
 
     fig.suptitle(title, size=20)
     plt.savefig(out_dir + str(title))

@@ -37,16 +37,19 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
 
     if debug: prev_t = time_n_print(init_t, Gs, 'generate Gs')
 
-    Gs = rm_repeats(Gs)
-    if debug: prev_t = time_n_print(prev_t, Gs, 'trim Gs')
+    # rm_repeats() is now done dynamics during gen_Gs (much faster this way)
+    #Gs = rm_repeats(Gs)
+    #if debug: prev_t = time_n_print(prev_t, Gs, 'trim Gs')
 
-    Gs = rm_hidden_repeats(Gs) #, in_out_too=True)
+    Gs = rm_inversions(Gs) #, in_out_too=True)
     if debug: prev_t = time_n_print(prev_t, Gs, 'trim hidden inversions')
 
     #draw_nets.save_mult(Gs, out_dir)
     #assert(False)
 
-    Gs = assign_op_combos(Gs)
+    inform_nets.picklem(Gs, out_dir, n, chkpt='pre-combos')
+
+    Gs = assign_op_combos(Gs, ex, dyn_trim=True)
     if debug: prev_t = time_n_print(prev_t, Gs, 'assign op combos')
 
     #Gs = rm_op_repeats(Gs)
@@ -54,9 +57,9 @@ def gen_graphs(n, ex, out_dir, debug=False, draw=False):
     #if debug: prev_t = time_n_print(prev_t, Gs, 'trim op combos')
 
     check(Gs)
-    inform_nets.picklem(Gs, out_dir, n)
+    inform_nets.picklem(Gs, out_dir, n, chkpt='size-specific')
     Gs = keep_correct(Gs, ex)
-    inform_nets.picklem(Gs, out_dir, n, ex=ex)
+    inform_nets.picklem(Gs, out_dir, n, ex=ex, chkpt='ex-specific')
     if debug: prev_t = time_n_print(prev_t, Gs, 'check and filter correct Gs')
 
     if draw: draw_nets.save_mult(Gs, out_dir)
@@ -78,6 +81,7 @@ def keep_correct(Gs, ex):
         if accuracy == 1: correct_Gs += [G]
     return correct_Gs
 
+
 def rm_repeats(Gs):
     dels = []
     for i in range(len(Gs)):
@@ -96,18 +100,16 @@ def rm_repeats(Gs):
 
     return Gs
 
-def rm_hidden_repeats(Gs, ops=False, in_out_too = False):
+def rm_inversions(Gs, ops=False, in_out_too = False):
     #TODO: woah damn, clean this filthy ass mess
-    #TODO: likely cuts too many nets in the case of asym inputs...
-    assert(not in_out_too) #breaks XOR
     dels = []
     for i in range(len(Gs)):
         rmd = False
         for j in range(i):
             if rmd: break
             #TODO: poss for 2 acyclic nets with same in an out degrees for all hidden nodes to have different connectivity?
-            if in_out_too: i_nodes, j_nodes = sorted(list(Gs[i].nodes())), sorted(list(Gs[j].nodes()))
-            else:  i_nodes, j_nodes = sorted(Gs[i].graph['hidden']), sorted(Gs[j].graph['hidden'])
+            #if in_out_too: i_nodes, j_nodes = sorted(list(Gs[i].nodes())), sorted(list(Gs[j].nodes()))
+            i_nodes, j_nodes = sorted(Gs[i].graph['hidden']), sorted(Gs[j].graph['hidden'])
 
             if i_nodes == j_nodes:
                 i_in_degs = [len(Gs[i].in_edges(h)) for h in sorted(list(Gs[i].nodes()))]
@@ -118,6 +120,8 @@ def rm_hidden_repeats(Gs, ops=False, in_out_too = False):
 
                     if i_out_degs == j_out_degs:
                         same_paths=True
+
+                        # TODO: can prob cut this whole section
                         if not in_out_too:
                             for in_ in rng(Gs[i].graph['inputs']):
                                 for out_ in rng(Gs[i].graph['outputs']):
@@ -201,7 +205,7 @@ def rm_op_repeats(Gs):
     return Gs
 
 
-def assign_op_combos(Gs):
+def assign_op_combos(Gs, ex, dyn_trim=False):
     # assigns all combinations of ops = [and, nand, or, nor]
     # nodes with one input use the same ops, but they are basically = [id, not]
     Gs_opd = []
@@ -216,9 +220,9 @@ def assign_op_combos(Gs):
             elif len(net.in_edges(h)) == 2: h2 += 1
             else: assert(False)
 
-        prods1 = list(product(ops1,repeat=h1))
-        prods2 = list(product(ops2,repeat=h2))
-        prods = list(product(prods1,prods2))
+        prods1 = product(ops1,repeat=h1)
+        prods2 = product(ops2,repeat=h2)
+        prods = product(prods1,prods2)
         #but then need all combos of these 2 subsets...
 
         for p in prods:
@@ -234,7 +238,13 @@ def assign_op_combos(Gs):
                     pnet.nodes[h]['op'] = p2[i2]
                     i2+=1
                 else: assert(False)
-            Gs_opd += [pnet]
+
+            if dyn_trim: 
+                accuracy = run_fwd.all_instances(pnet, ex)
+                if accuracy == 1: 
+                    Gs_opd += [pnet]
+                    if len(Gs_opd % 100 == 0): print('assign_op_combos() found ' + len(Gs_opd) + ' correct nets so far.')
+            else: Gs_opd += [pnet]
 
     return Gs_opd
 
@@ -280,6 +290,7 @@ def check(Gs):
 
 
 def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, verbose=True):
+    # calls rm_repeats(Gs) as Gs are built, which dramatically reduces run time
 
     Gs = []
     for t in rng(target_nodes):
@@ -301,14 +312,15 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, ve
                 if not net_orig.has_edge(input_nodes[i], target_nodes[t]):
                     net = net_orig.copy()
                     net.add_edge(input_nodes[i],target_nodes[t])
-                    new_input_nodes = input_nodes.copy()
-                    del new_input_nodes[i]
+                    #new_input_nodes = input_nodes.copy()
+                    #del new_input_nodes[i]
                     if nx.is_directed_acyclic_graph(net):
-                        if has_an_io_path(net)and all_hidden_btwn_io(net):
+                        if has_an_io_path(net) and all_hidden_btwn_io(net):
                             Gs += [net.copy()]
 
                         # try again with same target node with new input node attached
                         Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes)
+                        rm_repeats(Gs)
 
             chosen = None
             for i in range(len(hidden_nodes)):
@@ -337,11 +349,12 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,max_in_degree=2, ve
 
                         # try again with same target node with new hidden node attached
                         Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes)
+                        rm_repeats(Gs)
 
                         # try again with the hidden node as the new target
                         # hidden_node[i] rm'd since would always cause a cycle
                         Gs += gen_Gs(net, target_nodes + [hidden_nodes[i]], input_nodes, new_hidden_nodes)
-
+                        rm_repeats(Gs)
     return Gs
 
 

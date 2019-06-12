@@ -49,7 +49,7 @@ def one_pie(pid, key, axs, x, y):
         for i in range(len(dels)): #need to shift remaining dels since list shrinks
             dels[i] -= 1
 
-    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct=make_autopct(tot), shadow=True, startangle=90, colors=colors, radius=1)
+    wedges, texts, autotxt = axs[x, y].pie(fracs, autopct=make_autopct(tot), shadow=True, startangle=90, colors=colors, radius=1.75, center=(2,1))
 
     for a in autotxt:
         a.set_fontsize(6)
