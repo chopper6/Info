@@ -58,9 +58,9 @@ def R_candidates(Pr, Al, num_inst):
 
     # TODO: poss frag into smaller fns
 
-    xkeys = ['<ii/i>x', 'min>x', 'min>x/h']
-    ykeys = ['<ii/i>y', 'min>y', 'min>y/h']
-    wkeys = ['II/I', 'min(II)', 'min(III)'] #w for whole
+    xkeys = ['<ii/i>x','min>x', 'min>x/h', 'min>>']
+    ykeys = ['<ii/i>y','min>y', 'min>y/h']
+    wkeys = [] #['II/I', 'min(II)', 'min(III)'] #w for whole
 
     cand_keys = xkeys + ykeys + wkeys
 
@@ -69,6 +69,7 @@ def R_candidates(Pr, Al, num_inst):
     defunct_keys_2 = ['sqrt I<ii>y/H', 'sqrt I<ii>x/H','<ii/h>y', '<ii/h>x', 'sqrt I<ii/i>x', 'sqrt I<ii/i>y','sqrt(III/I)', 'II/H']
     defunct_keys_3 = ['logH II/I','sqrt II','III/HI', 'I<ii/i>y/H', 'sqrt <ii>y', 'I<ii/i>x/H', 'sqrt <ii>x']
     defunct_keys_4 = ['min(iiii)>x', 'min(iii)>y']
+    defunct_keys_5 = ['II/I', 'min(II)', 'min(III)']
 
     r = [{k:0 for k in cand_keys} for i in range(num_inst)]
 
@@ -87,6 +88,10 @@ def R_candidates(Pr, Al, num_inst):
         r[i]['sqrt <ii>x'] = pow(partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i), 1/2)
 
         r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
+        r[i]['min>>'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i),partial_info(Pr,Al,'x1','y',i),partial_info(Pr,Al,'x2','y',i))
+
+
+
         r[i]['min>x/h'] = min(partial_info(Pr,Al,'y','x1',i)/h(Pr[i],'x1'),partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x2'))
 
         r[i]['min(iiii)>x'] = min(partial_info(Pr,Al,'x2','x1',i), partial_info(Pr,Al,'x1','x2',i),  partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
@@ -163,7 +168,7 @@ def R_candidates(Pr, Al, num_inst):
 def PID_decompose_normzd(R, Pr, Al, print_PID=False):
     # note that earlier sense of R[i] would have to be avg'd for R
     # TODO: rm Al arg if unused
-
+    '''
     PID = {k:{'R':R[k], 'U1':avg([info(Pr[i],'x1','y')/h(Pr[i],'y') for i in rng(Pr)]),
             'U2':avg([info(Pr[i],'x2','y')/h(Pr[i],'y') for i in rng(Pr)]), 
             'S':avg([info(Pr[i],'x1,x2','y')/h(Pr[i],'y') for i in rng(Pr)])}
@@ -176,6 +181,9 @@ def PID_decompose_normzd(R, Pr, Al, print_PID=False):
             'S':avg([info(Pr[i],'x1,x2','y')/h(Pr[i],'x1,x2',logbase=4) for i in rng(Pr)])}
     print('\ninit pid = ' + str(PID['min>x/h']))
     assert(False)
+    '''
+    PID = {k:{'R':R[k], 'U1':Info(Pr,'x1','y'),
+        'U2':Info(Pr,'x2','y'),'S':Info(Pr,'x1,x2','y')} for k in R.keys()}
 
     for k in PID.keys():
     	for p in ['R', 'U1', 'U2', 'S']:
@@ -238,7 +246,8 @@ if __name__ == "__main__":
 
     if sys.argv[1] == 'all':
         exs = ['xor','id', 'id2','id3','and','breaker','rdnerr', 'an', 'pwunq',
-               'xor2','pw_v2', 'pw_v3','xx1','xx2','imbalance','imbalance2','imbalance3', 'concat']
+               'xor2','pw_v2', 'pw_v3','xx1','xx2','imbalance','imbalance2','imbalance3', 'concat', 
+               'nor','nand','aneg']
         #crutch_dyadic', 'crutch_triadic'
         PIDS,PR = {}, {}
         for ex in exs:

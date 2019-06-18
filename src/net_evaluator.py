@@ -4,10 +4,8 @@ from util import *
 
 #TODO: reorganize to be cleaner with previous build?
 
-def eval(Gs,out_dir):
+def eval(Gs,out_dir, hnormz=False):
 	#pid_keys = ['<i>x','<i>y']
-
-	hnormz = True
 
 	net_PIDs, node_PIDs = [], []
 	for G in Gs:
@@ -17,18 +15,12 @@ def eval(Gs,out_dir):
 			if len(G.in_edges(n)) == 2:
 				PIDs += [eval_node_horz_PID(G,n,hnormz = hnormz)]
 
-			# nodes with 1 edge have entirely unique1 info
-			if len(G.in_edges(n)) == 1:
-				in_edges = list(G.in_edges(n))
-				e1 = in_edges[0][0]
-				dummy_input = [0 for i in rng(G.nodes[e1]['hist'])]
-				input = [G.nodes[e1]['hist'], dummy_input]
-				#output = G.nodes[G.graph['outputs'][0]]['hist']
-				output = G.nodes[n]['hist']
-				PIDs += [eval_node_PID(G, input, output,hnormz = hnormz, x1x2logbase=2)]
+			else: assert(False)
 
 		net_PIDs += [merge_node_PIDs(PIDs)]
 		node_PIDs += [PIDs]
+
+		#path_pids(G,G.graph['inputs'])
 
 	return net_PIDs, node_PIDs
 
@@ -43,17 +35,57 @@ def merge_node_PIDs(PIDs):
 	return PID_total
 
 
-
-def eval_node_horz_PID(net,node, hnormz=False):
-	assert(len(net.graph['outputs']) == 1)
-
+def get_inputs(net,node):
 	es = list(net.in_edges(node))
 	e1, e2 = es[0][0],es[1][0]
-	input = [net.nodes[e1]['hist'],net.nodes[e2]['hist']]
-	#output = net.nodes[net.graph['outputs'][0]]['hist']
-	output = net.nodes[node]['hist']
+	inputs = [net.nodes[e1]['hist'],net.nodes[e2]['hist']]
+	return inputs
 
-	return eval_node_PID(net, input, output, hnormz=hnormz)
+def eval_node_horz_PID(net,node, hnormz=False, output_choice='immed'):
+	assert(len(net.graph['outputs']) == 1)
+
+	inputs = get_inputs(net, node)
+	if output_choice == 'final': output = net.nodes[net.graph['outputs'][0]]['hist']
+	elif output_choice == 'immed': output = net.nodes[node]['hist']
+	else: assert(False) #unknown 'output_choice'
+
+	pids =  eval_node_PID(net, inputs, output, hnormz=hnormz)
+	net.node[node]['pid'] = pids
+	return pids
+
+
+
+def path_pids(G):
+	# curr very inefficient...only good for small nets
+	
+	# init reset
+	for n in G.graph['hidden'] + G.graph['output']:
+		G.node[n]['pid_path'] = None
+
+	# assign pid paths
+	done=False
+	z=0
+	while not done:
+		done=True
+		for n in G.graph['hidden']:
+			ready=True
+			for e in G.in_edges(n): #TODO: add input node handling
+				if e[0] not in G.graph['inputs']:
+					if G.node[e[0]]['pid_path'] is None:
+						ready=done=False
+						break
+			if ready: a_node_path_pid(G, n)
+		z+=1
+		if z==10000:
+			print("ERROR: infinite loop in path_pids()")
+			assert(False)
+
+
+
+def a_node_path_pid(G, node):
+	# TODO: figure out how to really merge uneven amts of S from the inptus
+	assert(False) #incomplete
+	
 
 
 def eval_node_vert_PIDs(net, node):

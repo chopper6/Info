@@ -41,6 +41,18 @@ def get_io(name):
     elif name == 'imbalance3':
         input = [[1,2,3,1,0,0],[0,0,0,0,2,3]]
         output = [1,2,3,1,2,3]
+    elif name == 'aneg':
+        input = [[1,0,1,0],[0,1,1,1]]
+        output = [0,0,1,0]
+    elif name == 'or':
+        input = [[1,0,1,0],[1,1,0,0]]
+        output = [1,1,1,0]
+    elif name == 'nor':
+        input = [[1,0,1,0],[1,1,0,0]]
+        output = [0,0,0,1]
+    elif name == 'nand':
+        input = [[1,0,1,0],[1,1,0,0]]
+        output = [0,1,1,1]
 
 
     elif name == 'crutch_dyadic': #note that he doesn't specify inputs vs outputs

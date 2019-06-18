@@ -12,6 +12,7 @@ def all_instances(net, ex):
     for n in net.nodes(): net.nodes[n]['hist'] = []
     input,output = examples.get_io(ex)
     for i in range(len(output)):
+
         acc += one_instance(net, ex, i)
 
         # save output for later evaluation
@@ -23,6 +24,7 @@ def all_instances(net, ex):
 
 def one_instance(net, ex, instance):
     init(net)
+
 
     input,output = examples.get_io(ex)
 
@@ -142,6 +144,8 @@ def activate(net,n, ex, instance):
                 else: net.nodes[n]['out'] = 1
             elif op == 'output':
                 assert(False) #outputs should not have > 1 in_edges
-            else: assert(False) #unknown op
+            else: 
+                print('\nunknown op:',op,'from edge:',e1,e2)
+                assert(False) #unknown op
 
 

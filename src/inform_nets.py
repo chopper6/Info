@@ -14,13 +14,14 @@ def all_combos(n, ex, protocol, output_path, pickle_type=None):
         Gs = net_generator.gen_graphs(n, ex, output_path, debug=True, draw=False,protocol=protocol)
     
     if len(Gs) > 0:
-        net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path)
+        net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path, hnormz=False)
         draw_nets.set_of_nets(net_PIDs, node_PIDs, Gs, output_path, n)
     else:
         print("\nWARNING: no viable networks were returned so no plots were generated ... ):\n")
 
 
 def from_pickle(out_dir, n, ex, pickle_type, debug=True):
+
 
     if pickle_type == 'size-specific': 
         # could change to 'for-ex'
@@ -39,7 +40,9 @@ def from_pickle(out_dir, n, ex, pickle_type, debug=True):
     elif pickle_type == 'pre-combos':
         Gs = pickle.load( open(out_dir + 'all_nets_size_' + str(n) + '_precombos', "rb" ) )
 
-    else: assert(False) #unknown pickle_type arg
+    else: 
+        print('\nERROR: unknown pickle_type:',pickle_type)
+        assert(False) #unknown pickle_type arg
 
     return Gs
 
@@ -57,12 +60,12 @@ def picklem(Gs, out_dir, n, ex=None, chkpt=''):
 
 if __name__ == "__main__":
 
-    assert(len(sys.argv) in [4,5]) # args should be: ex, n, [pickle]
+    assert(len(sys.argv) in [4,5]) # args should be: ex, n, proto, [pickle]
 
     output_path= 'C:/Users/Crbn/Documents/Code/Info/plots/'
     ex, n, protocol = sys.argv[1], int(sys.argv[2]), sys.argv[3]
     if len(sys.argv)==5: 
-        pickle_type=sys.argv[3]
+        pickle_type=sys.argv[4]
     else: pickle_type = None
     print("\nInforming all combos on example " + str(ex) + ' with graphs max|n| = ' + str(n) + '\n')
     all_combos(n, ex, protocol, output_path, pickle_type=pickle_type)
