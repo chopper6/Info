@@ -4,7 +4,7 @@ from util import *
 
 #TODO: reorganize to be cleaner with previous build?
 
-def eval(Gs,out_dir, hnormz=False):
+def eval(Gs,out_dir, pid_protocol='single', hnormz=False, output_choice='immed'):
 	#pid_keys = ['<i>x','<i>y']
 
 	net_PIDs, node_PIDs = [], []
@@ -13,8 +13,9 @@ def eval(Gs,out_dir, hnormz=False):
 		for j in rng(G.graph['hidden']):
 			n = G.graph['hidden'][j]
 			if len(G.in_edges(n)) == 2:
-				PIDs += [eval_node_horz_PID(G,n,hnormz = hnormz)]
-
+				if pid_protocol == 'single': PIDs += [eval_node_horz_PID(G,n,hnormz = hnormz, output_choice=output_choice)]
+				elif pid_protocol == 'S/maxR':PIDs += [eval_node_SdivR_PID(G,n)]
+				else: assert(False) #unknown protocol
 			else: assert(False)
 
 		net_PIDs += [merge_node_PIDs(PIDs)]
@@ -35,9 +36,10 @@ def merge_node_PIDs(PIDs):
 	return PID_total
 
 
-def get_inputs(net,node):
-	es = list(net.in_edges(node))
+def get_inputs(net,node,get_nodes=False):
+	es = sorted(list(net.in_edges(node)))
 	e1, e2 = es[0][0],es[1][0]
+	if get_nodes: return e1,e2
 	inputs = [net.nodes[e1]['hist'],net.nodes[e2]['hist']]
 	return inputs
 
@@ -53,6 +55,31 @@ def eval_node_horz_PID(net,node, hnormz=False, output_choice='immed'):
 	net.node[node]['pid'] = pids
 	return pids
 
+
+def eval_node_SdivR_PID(net,node):
+	assert(len(net.graph['outputs']) == 1)
+
+	inputs = get_inputs(net, node)
+	final_output = net.nodes[net.graph['outputs'][0]]['hist']
+
+	this_pid =  eval_node_PID(net, inputs, final_output, hnormz=False)
+
+	pid_metrics = this_pid.keys()
+	maxR = {m:0 for m in pid_metrics}
+	for n in net.graph['hidden']:
+		if node != n:
+			node_outputs = [net.nodes[node]['hist'],net.nodes[n]['hist']]
+			that_pid = eval_node_PID(net, node_outputs, final_output, hnormz=False) 
+			for m in pid_metrics:
+				maxR[m] = max(maxR[m], that_pid[m]['R'])
+
+	for m in pid_metrics:
+
+		if maxR[m] != 0: this_pid[m]['S'] *= maxR[m]
+
+
+	net.node[node]['pid'] = this_pid
+	return this_pid
 
 
 def path_pids(G):
@@ -115,6 +142,9 @@ def eval_node_PID(net,input,output,hnormz=False, x1x2logbase=4):
 
 	# PID candidates
 	Rs = R(Pr, Al, num_inst, hnormz=hnormz)
+
+	print("\nWARNING: need to adjust PID for edge op entropy...\n")
+
 	PIDs = PID_decompose(Rs, Pr, print_PID=False, hnormz=hnormz, x1x2logbase=x1x2logbase)
 	return PIDs
 

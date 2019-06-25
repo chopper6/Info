@@ -1,4 +1,5 @@
 import numpy as np
+from util import *
 
 
 
@@ -58,6 +59,8 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
 
     # assumes all inputs have same max val
 
+    if disordered: assert(False) #need to fix for inputs of len > 2
+
     if np.array(input).ndim > 1:
         num_rows = len(input)       #edges
         num_cols = len(input[0])    #instances
@@ -67,17 +70,16 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
         num_cols = len(input)
 
     assert(np.array(output).ndim == 1)
-    assert(np.array(input).ndim == 2) #temp?
 
-    max_input = max(max(input[1]),max(input[0]))+1 #assumes all inputs have same max
+    max_input = max(max(input[i]) for i in rng(input))+1 #assumes all inputs have same max
     max_output = max(output)+1  # +1 since these are values (if max = 1, there are two vals, 0 & 1)
 
     # first sets are for counting, aligned for ordering
-    pr_y = [0 for i in range(max_output)]
-    pr_x = [[0 for i in range(max_input)] for j in range(num_rows)]
-    pr_xx = [[0 for i in range(max_input)] for j in range(max_input)]
-    pr_xy = [[[0 for i in range(max_output)] for j in range(max_input)] for k in range(num_rows)]
-    pr_xxy = [[[0 for i in range(max_output)] for j in range(max_input)] for k in range(max_input)]
+    pr_y = np.array([0 for i in range(max_output)])
+    pr_x = np.array([[0 for i in range(max_input)] for j in range(num_rows)])
+    pr_xx = np.array([[0 for i in range(max_input)] for j in range(max_input)])
+    pr_xy = np.array([[[0 for i in range(max_output)] for j in range(max_input)] for k in range(num_rows)])
+    pr_xxy = np.array([[[0 for i in range(max_output)] for j in range(max_input)] for k in range(max_input)])
 
     # disordered pr's
     if disordered:
@@ -96,6 +98,7 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
             pr_xxy_dis[in_dis[0]][in_dis[1]][output[i]] +=1
             pr_xx_dis[in_dis[0]][in_dis[1]] +=1
 
+        pr_xxy[[input[j][i] for j in rng(input)]+[output[i]]] += 1
         pr_xxy[input[0][i]][input[1][i]][output[i]] += 1
         pr_xx[input[0][i]][input[1][i]] += 1
         pr_y[output[i]] += 1

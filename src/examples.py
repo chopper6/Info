@@ -1,4 +1,5 @@
 import numpy as np
+from util import *
 
 def get_io(name):
     if name == 'and':
@@ -66,11 +67,27 @@ def get_io(name):
         input = [[0,0,1,1],[0,1,0,1]]
         output = [0,1,2,3]
 
+    elif name == '3and':
+        input = [[1,1,1,1,0,0,0,0],[1,1,0,0,1,1,0,0],[1,0,1,0,1,0,1,0]]
+        output = [1,0,0,0,0,0,0,0]
+    elif name == '4and':
+        input = [[1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0],[1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0],
+        [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]]
+        output = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+    elif name in ['3parity','3xor']:
+        input = [[1,1,1,1,0,0,0,0],[1,1,0,0,1,1,0,0],[1,0,1,0,1,0,1,0]]
+        output = [sum(input[i][j] for i in rng(input)) % 2 for j in rng(input[0])]
+    elif name in ['4parity','4xor']:
+        input = [[1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0],[1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0],
+        [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]]
+        output = [sum(input[i][j] for i in rng(input)) % 2 for j in rng(input[0])]
+
     else:
         assert (False)  # unknown sys.argv[1]
 
 
-    assert(np.array(input).ndim == 2) #for now, only want pairs of edges
+    #assert(np.array(input).ndim == 2) #for now, only want pairs of edges
+    for i in input: assert(len(i) == len(output))
     return input, output
 
 ########################## BASE PROBLEMS ####################################

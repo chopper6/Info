@@ -4,7 +4,7 @@ import examples, draw_nets
 # op: layer or activation function
 # out: the output value that the node passes, post activation fn
 
-#TODO: not yet sure how to handle non binary ex's and with logical ops...
+# TODO: not yet sure how to handle non binary ex's and with logical ops...
 # TODO: assumes 1 output and binary problem
 
 def all_instances(net, ex):

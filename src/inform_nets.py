@@ -1,5 +1,5 @@
 import sys, pickle, os
-import net_generator, net_evaluator, draw_nets
+import net_generator, net_evaluator, draw_nets, edge_fitness
 from util import *
 
 
@@ -14,7 +14,8 @@ def all_combos(n, ex, protocol, output_path, pickle_type=None):
         Gs = net_generator.gen_graphs(n, ex, output_path, debug=True, draw=False,protocol=protocol)
     
     if len(Gs) > 0:
-        net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path, hnormz=False)
+        net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path, pid_protocol='single',output_choice='immed', hnormz=False)
+        edge_fitness.population(Gs)
         draw_nets.set_of_nets(net_PIDs, node_PIDs, Gs, output_path, n)
     else:
         print("\nWARNING: no viable networks were returned so no plots were generated ... ):\n")
@@ -23,7 +24,7 @@ def all_combos(n, ex, protocol, output_path, pickle_type=None):
 def from_pickle(out_dir, n, ex, pickle_type, debug=True):
 
 
-    if pickle_type == 'size-specific': 
+    if pickle_type in ['size-specific','size-spc','ss']: 
         # could change to 'for-ex'
 
         Gs = pickle.load( open(out_dir + 'all_nets_size_' + str(n), "rb" ) )

@@ -16,6 +16,7 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
     # generates graphs of size n
     input,output = examples.get_io(ex)
     num_out = 1 #TODO: mult outputs
+    Edge_Ops = ['in','not']
 
     if protocol == 'combos': series = False
     elif protocol == 'series': series = True
@@ -37,9 +38,14 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
         #else: net.add_node(i, op=None)
 
     if debug: init_t = time()
-    Gs = gen_Gs(net, net.graph['outputs'], net.graph['inputs'], hidden_nodes, series=series)
+    dyn_trim=True
+    Gs = gen_Gs(net, net.graph['outputs'], net.graph['inputs'], hidden_nodes, series=series, dyn_trim=dyn_trim)
 
     if debug: prev_t = time_n_print(init_t, Gs, 'generate Gs')
+
+    if not dyn_trim: 
+        rm_repeats(Gs)
+        if debug: prev_t = time_n_print(prev_t,Gs,'trim repeats')
 
     Gs = rm_inversions(Gs)
     if debug: prev_t = time_n_print(prev_t, Gs, 'trim hidden inversions')
@@ -49,15 +55,10 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
 
     inform_nets.picklem(Gs, out_dir, n, chkpt='pre-combos')
 
-    Gs = assign_op_combos(Gs, ex, dyn_trim=False) #dyn_trim only useful if gen huge # of graphs --> mem problem
+    Gs = assign_op_combos(Gs, ex, Edge_Ops=Edge_Ops, all_in_edges_same=False, dyn_trim=False) #dyn_trim only useful if gen huge # of graphs --> mem problem
     if debug: prev_t = time_n_print(prev_t, Gs, 'assign op combos')
 
     check(Gs, series)
-    if False:
-        for G in Gs:
-            for e in G.edges():
-                assert(G[e[0]][e[1]]['op'] in ['id','not'])
-
     inform_nets.picklem(Gs, out_dir, n, chkpt='size-specific')
     
     Gs = keep_correct(Gs, ex)
@@ -119,8 +120,22 @@ def rm_inversions(Gs, ops=False, in_out_too = False):
                     j_out_degs = [len(Gs[j].out_edges(h)) for h in sorted(list(Gs[j].nodes()))]
 
                     if i_out_degs == j_out_degs:
-                        dels +=[i]
-                        rmd = True
+                        diff = False
+                        for k in rng(sorted(Gs[i].graph['hidden'])):
+                            if diff: break
+                            i_in_inputs, j_in_inputs = 0,0
+                            i_node, j_node = i_nodes[k], j_nodes[k]
+                            for e in Gs[i].in_edges(i_node):
+                                if e[0] in Gs[i].graph['inputs']: i_in_inputs += 1
+                            for e in Gs[j].in_edges(j_node):
+                                if e[0] in Gs[j].graph['inputs']: j_in_inputs += 1
+                            if i_in_inputs != j_in_inputs: 
+                                diff=True
+                                break
+
+                        if not diff:
+                            dels +=[i]
+                            rmd = True
 
 
     for d in range(len(dels)):
@@ -130,14 +145,13 @@ def rm_inversions(Gs, ops=False, in_out_too = False):
     return Gs
 
 
-def assign_op_combos(Gs, ex, dyn_trim=False):
+def assign_op_combos(Gs, ex, dyn_trim=False, all_in_edges_same=False, Edge_Ops=None):
     
-    all_in_edges_same = True
     input_edges_id = False
     if input_edges_id: print("\nWARNING assign_op_combos(): all out edges from inputs given 'id' op.\n")
     
     Gs_opd = []
-    Edge_Ops = ['id','not'] #capital to distinguish from later loop
+    if Edge_Ops is None: Edge_Ops = ['id','not'] #capital to distinguish from later loop
     Node_Ops = ['and'] # all other ops already captured via edges
 
     for G in Gs:
@@ -266,7 +280,7 @@ def choose_source(net, sources, target_node):
             return i
     return None
 
-def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,series=False,max_in_degree=2, verbose=True):
+def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,series=False,max_in_degree=2, verbose=True):
     # calls rm_repeats(Gs) as Gs are built, which dramatically reduces run time
     # "series" arg refers to a population of graphs built on consecutive correct subgraphs
 
@@ -281,25 +295,31 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,series=False,max_in
         if not done:
 
             chosen= choose_source(net_orig, input_nodes, target_nodes[t])
-            if chosen is not None:
-                i=chosen
-                net = net_orig.copy()
-                net.add_edge(input_nodes[i],target_nodes[t])
-                if nx.is_directed_acyclic_graph(net):
-                    proper=False
-                    if has_an_io_path(net) and all_hidden_btwn_io(net):
-                        proper = True
-                        if all_hidden_in_deg(net): Gs += [net.copy()]
+            if chosen is not None:    i=chosen
+            # cut above if decide to use below
 
-                    if proper or not series:
-                        # try again with same target node with new input node attached
-                        Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series)
-                        rm_repeats(Gs)
+            for i in rng(net_orig.graph['inputs']):
+                if not net_orig.has_edge(net_orig.graph['inputs'][i],target_nodes[t]):
+
+                    net = net_orig.copy()
+                    net.add_edge(input_nodes[i],target_nodes[t])
+                    if nx.is_directed_acyclic_graph(net):
+                        proper=False
+                        if has_an_io_path(net) and all_hidden_btwn_io(net):
+                            proper = True
+                            if all_hidden_in_deg(net): Gs += [net.copy()]
+
+                        if proper or not series:
+                            # try again with same target node with new input node attached
+                            Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series)
+                            if dyn_trim: rm_repeats(Gs)
+
 
 
             chosen = choose_source(net_orig, hidden_nodes, target_nodes[t])
             if chosen is not None:
                 i=chosen
+
                 net = net_orig.copy()
 
                 #TODO: this is fucking stupid, make my own copy fn()?
@@ -311,22 +331,23 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,series=False,max_in
                 net.add_edge(hidden_nodes[i],target_nodes[t])
 
                 if nx.is_directed_acyclic_graph(net):
-                    proper = False
-                    if has_an_io_path(net) and all_hidden_btwn_io(net):
-                        if all_hidden_in_deg(net): Gs += [net.copy()]
-                        proper=True
+                    if series:
+                        proper = False
+                        if has_an_io_path(net) and all_hidden_btwn_io(net):
+                            if all_hidden_in_deg(net): Gs += [net.copy()]
+                            proper=True
 
                     if proper or not series:
                         # try again with same target node with new hidden node attached
                         Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series)
-                        rm_repeats(Gs)
+                        if dyn_trim: rm_repeats(Gs)
 
                     # try again with the hidden node as the new target
                     # hidden_node[i] rm'd since would always cause a cycle
                     new_hidden_nodes = hidden_nodes.copy()
                     del new_hidden_nodes[i]
                     Gs += gen_Gs(net, target_nodes + [hidden_nodes[i]], input_nodes, new_hidden_nodes, series=series)
-                    rm_repeats(Gs)
+                    if dyn_trim: rm_repeats(Gs)
     return Gs
 
 
