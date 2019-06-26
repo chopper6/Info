@@ -95,7 +95,7 @@ def done(net):
 
 
 def all_inputs_arrived(net,n):
-    if net.nodes[n]['op'] == 'input': return True #always ready
+    if net.nodes[n]['layer'] == 'input': return True #always ready
 
     for e in net.in_edges(n):
         if net[e[0]][e[1]]['out'] is None: return False

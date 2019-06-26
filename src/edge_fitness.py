@@ -25,5 +25,4 @@ def assign(G):
 				G[es[0][0]][es[0][1]]['fitness'] = 1 #also a temp fix, H(target)?
 				# TODO: need to add fitness to output, presumably just MI?
 
-	assert(num_assigned == len(G.edges())-1) # TODO: change this once edge to output included
 	G.graph['edge_fitness'] = sum_fitness/len(G.edges())

@@ -1,7 +1,13 @@
 import numpy as np
 from util import *
+from itertools import product
 
 
+# TODO: test back with orig 2-wise gates first
+# TODO: rm disordered thing?
+# pr_xx is better called pr_xs now
+
+# TODO: could change keys for build_p_atoms, since no longer x1,x2
 
 
 def build_p_atoms(pr_y, pr_x, pr_xx, pr_xy, pr_xxy, num_instances):
@@ -59,6 +65,8 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
 
     # assumes all inputs have same max val
 
+    if debug: print("\npr.find_prs_aligned() using DEBUG")
+
     if disordered: assert(False) #need to fix for inputs of len > 2
 
     if np.array(input).ndim > 1:
@@ -71,15 +79,18 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
 
     assert(np.array(output).ndim == 1)
 
+    # may need to use same value for max_input, max_output to make nice sq array
     max_input = max(max(input[i]) for i in rng(input))+1 #assumes all inputs have same max
     max_output = max(output)+1  # +1 since these are values (if max = 1, there are two vals, 0 & 1)
 
     # first sets are for counting, aligned for ordering
-    pr_y = np.array([0 for i in range(max_output)])
-    pr_x = np.array([[0 for i in range(max_input)] for j in range(num_rows)])
-    pr_xx = np.array([[0 for i in range(max_input)] for j in range(max_input)])
-    pr_xy = np.array([[[0 for i in range(max_output)] for j in range(max_input)] for k in range(num_rows)])
-    pr_xxy = np.array([[[0 for i in range(max_output)] for j in range(max_input)] for k in range(max_input)])
+    pr_y = np.array([0 for i in range(max_output)], dtype=np.float32)
+    pr_x = np.array([[0 for i in range(max_input)] for j in range(num_rows)], dtype=np.float32)
+    pr_xy = np.array([[[0 for i in range(max_output)] for j in range(max_input)] for k in range(num_rows)], dtype=np.float32)
+    
+    pr_xx = np.zeros([max_input for i in range(num_rows)])
+    pr_xxy = np.zeros([max_input for i in range(num_rows)] + [max_output])
+
 
     # disordered pr's
     if disordered:
@@ -98,31 +109,33 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
             pr_xxy_dis[in_dis[0]][in_dis[1]][output[i]] +=1
             pr_xx_dis[in_dis[0]][in_dis[1]] +=1
 
-        pr_xxy[[input[j][i] for j in rng(input)]+[output[i]]] += 1
-        pr_xxy[input[0][i]][input[1][i]][output[i]] += 1
-        pr_xx[input[0][i]][input[1][i]] += 1
+        pr_xxy[tuple([input[j][i] for j in rng(input)]+[output[i]])] += 1
+        pr_xx[tuple([input[j][i] for j in rng(input)])] += 1
         pr_y[output[i]] += 1
 
         for j in range(num_rows): #each edge
             pr_x[j][input[j][i]] += 1
             pr_xy[j][input[j][i]][output[i]] += 1
 
+
     #normalize
     for b in range(max_output):
         pr_y[b] /= num_cols
         if debug: assert(pr_y[b] <= 1 and pr_y[b] >= 0)
 
-    for b in range(max_input):
-        for d in range(max_input):
-            pr_xx[b][d] /= num_cols
+
+    Xs = list(product([i for i in range(max_input)], repeat=num_rows))
+    for i in rng(Xs): #for xs in Xs might also be ok, would keep Xs as a generator instead of a list
+        xs = list(Xs[i])
+        pr_xx[tuple(xs)] /= num_cols
+        if disordered:
+            pr_xx_dis[b][d] /= num_cols
+        if debug: assert (0 <=pr_xx[tuple(xs)] <= 1) 
+        for e in range(max_output):
+            pr_xxy[tuple(xs + [e])] /= num_cols
             if disordered:
-                pr_xx_dis[b][d] /= num_cols
-            if debug: assert (pr_xx[b][d] <= 1 and pr_xx[b][d] >= 0)
-            for e in range(max_output):
-                pr_xxy[b][d][e] /= num_cols
-                if disordered:
-                    pr_xxy_dis[b][d][e] /= num_cols
-                if debug: assert(pr_xxy[b][d][e] <= 1 and pr_xxy[b][d][e] >= 0)
+                pr_xxy_dis[b][d][e] /= num_cols
+            if debug: assert(0 <= pr_xxy[tuple(xs + [e])] <= 1)
 
     for j in range(num_rows):
         for b in range(max_input):
@@ -134,42 +147,41 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
 
     #align
     aligned_inputs, aligned_outputs = [[] for i in range(len(input))],[]
-    for x1 in range(max_input):
-        for x2 in range(max_input):
-            for y in range(max_output):
-                if pr_xxy[x1][x2][y] != 0:
-                    aligned_pr_xxy += [pr_xxy[x1][x2][y]]
-
-                    if disordered:
-                        in_dis = [x1,x2]
-                        in_dis.sort()
-                        aligned_pr_xxy_dis += [pr_xxy_dis[in_dis[0]][in_dis[1]][y]]
-                        aligned_pr_xx_dis += [pr_xx_dis[in_dis[0]][in_dis[1]]]
 
 
-                    aligned_pr_y += [pr_y[y]]
+    Xs = list(product([i for i in range(max_input)], repeat=num_rows))
+    for y in range(max_output):
+        for i in rng(Xs): #for xs in Xs might also be ok, would keep Xs as a generator instead of a list
+            xs = list(Xs[i])
+            if pr_xxy[tuple(xs+[y])] != 0:
+                aligned_pr_xxy += [pr_xxy[tuple(xs + [y])]]
 
-                    aligned_pr_x[0] += [pr_x[0][x1]]
-                    aligned_pr_x[1] += [pr_x[1][x2]]
+                if disordered:
+                    in_dis = [x1,x2]
+                    in_dis.sort()
+                    aligned_pr_xxy_dis += [pr_xxy_dis[in_dis[0]][in_dis[1]][y]]
+                    aligned_pr_xx_dis += [pr_xx_dis[in_dis[0]][in_dis[1]]]
 
-                    aligned_pr_xx += [pr_xx[x1][x2]]
+                aligned_pr_y += [pr_y[y]]
 
-                    aligned_pr_xy[0] += [pr_xy[0][x1][y]]
-                    aligned_pr_xy[1] += [pr_xy[1][x2][y]]
+                for k in rng(xs):
+                    x=xs[k]
+                    aligned_pr_x[k] += [pr_x[k][x]]
+                    aligned_pr_xy[k] += [pr_xy[k][x][y]]
+                    aligned_inputs[k] += [x]
 
-                    aligned_inputs[0] += [x1]
-                    aligned_inputs[1] += [x2]
-                    aligned_outputs += [y]
-
+                aligned_pr_xx += [pr_xx[tuple(xs)]]
+                aligned_outputs += [y]
 
     # add back duplicates
     added = []
     for i in range(len(output)):
         for j in range(i):
             if i!=j and j not in added:
-                if input[0][i] == input[0][j] and input[1][i] == input[1][j] and output[i] == output[j]:
-                    x1,x2,y = input[0][i], input[1][i], output[i]
-                    aligned_pr_xxy += [pr_xxy[x1][x2][y]]
+                if [input[k][i] for k in range(num_rows)] == [input[k][j] for k in range(num_rows)] and output[i] == output[j]:
+                    xs, y = [input[k][i] for k in range(num_rows)], output[i]
+                    aligned_pr_xxy += [pr_xxy[tuple(xs+[y])]]
+
                     aligned_pr_y += [pr_y[y]]
 
                     if disordered:
@@ -178,25 +190,22 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
                         aligned_pr_xx_dis += [pr_xx_dis[x1][x2]]
                         #aligned_pr_xx_dis += [pr_xx_dis[x2][x1]]
 
-                    aligned_pr_x[0] += [pr_x[0][x1]]
-                    aligned_pr_x[1] += [pr_x[1][x2]]
+                    for k in rng(xs):
+                        x=xs[k]
+                        aligned_pr_x[k] += [pr_x[k][x]]
+                        aligned_pr_xy[k] += [pr_xy[k][x][y]]
+                        aligned_inputs[k] += [x]
 
-                    aligned_pr_xx += [pr_xx[x1][x2]]
-
-                    aligned_pr_xy[0] += [pr_xy[0][x1][y]]
-                    aligned_pr_xy[1] += [pr_xy[1][x2][y]]
-
-                    aligned_inputs[0] += [x1]
-                    aligned_inputs[1] += [x2]
+                    aligned_pr_xx += [pr_xx[tuple(xs)]]
                     aligned_outputs += [y]
-                    added += [j]
+                    added += [j] #TODO: is this enough? could be missing some repeats
 
     if debug:
         assert(len(aligned_pr_x[0]) == len(aligned_pr_xxy) == len(aligned_pr_xy[1]) == len(aligned_pr_y))
+        assert(len(aligned_pr_x[i]) == len(aligned_pr_x[i+1]) for i in range(num_rows-1))
 
         print('\nutil.find_prs_aligned:\naligned_pr_y, aligned_pr_x, aligned_pr_xy, aligned_pr_xxy :')
-        print(aligned_pr_y, aligned_pr_x, aligned_pr_xy, aligned_pr_xxy)
-        print("\n")
+        print(aligned_pr_y, aligned_pr_x, aligned_pr_xy, aligned_pr_xxy, '\n')
 
     if disordered:
         return aligned_pr_y, aligned_pr_x, aligned_pr_xx, aligned_pr_xy, aligned_pr_xxy, \

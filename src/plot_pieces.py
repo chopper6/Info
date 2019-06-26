@@ -126,6 +126,7 @@ def build_info_bars(Pr, Al):
 def info_bars(Pr, Al, output_path, title):
 
     Is, ordered_keys = build_info_bars(Pr, Al)
+    num_inst = len(Al['y'])
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
@@ -142,10 +143,9 @@ def info_bars(Pr, Al, output_path, title):
     plt.figure(1,[24, 10])
 
     # The position of the bars on the x-axis
-    # TODO: curr for #bars per set = 4, could generalize
-    r = [2*i for i in range(len(bars[0]))]
-    barWidth = .3
-    r_xticks = [r[s]+3*(barWidth) for s in range(len(r))]
+    r = [num_inst/2*i for i in range(len(bars[0]))]
+    barWidth = .3 
+    r_xticks = [r[s]+num_inst*3/4*(barWidth) for s in range(len(r))]
     vbars = [r[s] - .5*barWidth for s in range(len(r))]
 
     blackbars = []

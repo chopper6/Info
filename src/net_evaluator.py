@@ -10,16 +10,18 @@ def eval(Gs,out_dir, pid_protocol='single', hnormz=False, output_choice='immed')
 	net_PIDs, node_PIDs = [], []
 	for G in Gs:
 		PIDs = []
-		for j in rng(G.graph['hidden']):
-			n = G.graph['hidden'][j]
+		nodes_to_eval = G.graph['hidden']+G.graph['outputs']
+		for j in rng(nodes_to_eval):
+			n = nodes_to_eval[j]
 			if len(G.in_edges(n)) == 2:
 				if pid_protocol == 'single': PIDs += [eval_node_horz_PID(G,n,hnormz = hnormz, output_choice=output_choice)]
 				elif pid_protocol == 'S/maxR':PIDs += [eval_node_SdivR_PID(G,n)]
 				else: assert(False) #unknown protocol
-			else: assert(False)
+			else: assert(len(G.in_edges(n)) == 1)
 
-		net_PIDs += [merge_node_PIDs(PIDs)]
-		node_PIDs += [PIDs]
+		if len(PIDs) > 0:
+			net_PIDs += [merge_node_PIDs(PIDs)]
+			node_PIDs += [PIDs]
 
 		#path_pids(G,G.graph['inputs'])
 
@@ -143,7 +145,7 @@ def eval_node_PID(net,input,output,hnormz=False, x1x2logbase=4):
 	# PID candidates
 	Rs = R(Pr, Al, num_inst, hnormz=hnormz)
 
-	print("\nWARNING: need to adjust PID for edge op entropy...\n")
+	print("\nWARNING: need to adjust PID for edge op entropy...")
 
 	PIDs = PID_decompose(Rs, Pr, print_PID=False, hnormz=hnormz, x1x2logbase=x1x2logbase)
 	return PIDs

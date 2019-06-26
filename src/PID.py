@@ -19,13 +19,13 @@ from util import *
 # but which ones remain unclear...
 
 
-def plot_ex(ex, output_path, normalize=True):
+def plot_ex(ex, output_path, normalize=True, debug=False):
 
     input, output = examples.get_io(ex)
     num_inst = len(output)
 
     # get pr's aligned by instances
-    pr_y,  pr_x, pr_xx, pr_xy, pr_xxy, aligned_inputs, aligned_outputs = pr.find_prs_aligned(input, output, debug=False, disordered=False)
+    pr_y,  pr_x, pr_xx, pr_xy, pr_xxy, aligned_inputs, aligned_outputs = pr.find_prs_aligned(input, output, debug=debug, disordered=False)
     Al = {'x1':aligned_inputs[0], 'x2':aligned_inputs[1], 'y':aligned_outputs}   # alphabet dict
 
     # probability atom plots
@@ -129,30 +129,6 @@ def R_candidates(Pr, Al, num_inst):
     # NON-PTWISE CANDIDATES
     if Info(Pr, 'x1,x2', 'y') == 0:
         for k in wkeys: R[k] = 0
-
-    else:
-        R['III/I'] = Info(Pr, 'x1', 'x2') * Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y') / Info(Pr, 'x1,x2', 'y')
-        R['II/I'] = Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y') / Info(Pr, 'x1,x2', 'y')
-        R['sqrt II'] = pow(Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y'), 1/2)
-
-        R['sqrt(III/I)'] = pow(R['III/I'], 1 / 2)
-        R['sqrt(II/I)'] = pow(R['II/I'], 1 / 2)
-
-        R['III/HI'] = R['III/I']/ H(Pr,'x1,x2')
-
-        R['II/H'] = Info(Pr, 'x1', 'y') * Info(Pr, 'x2', 'y') / H(Pr, 'x1,x2')
-
-        R['min(II)'] = min(Info(Pr, 'x1', 'y'), Info(Pr, 'x2', 'y'))
-        R['min(III)'] = min(Info(Pr, 'x1', 'y'), Info(Pr, 'x2', 'y'), Info(Pr,'x1','x2'))
-
-
-    # MIXED PTWISE AND WHOLE CANDIDATES
-    R['sqrt I<ii/i>y'] = pow(R['<ii/i>y'] * Info(Pr,'x1','x2'), 1 / 2)
-    R['sqrt I<ii/i>x'] = pow(R['<ii/i>x'] * Info(Pr,'x1','x2'), 1 / 2)
-    R['I<ii/i>x/H'] = R['<ii/i>x'] * Info(Pr,'x1','x2') / H(Pr,'x1,x2')
-    R['I<ii/i>y/H'] = R['<ii/i>y'] * Info(Pr,'x1','x2') / H(Pr,'x1,x2')
-
-    R['logH II/I'] = log((H(Pr,'x1')+H(Pr,'x2'))/H(Pr,'x1,x2'),2) * R['II/I']
 
     # only want to plot candidates
     dels = []

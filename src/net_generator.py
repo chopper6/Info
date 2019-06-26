@@ -16,7 +16,6 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
     # generates graphs of size n
     input,output = examples.get_io(ex)
     num_out = 1 #TODO: mult outputs
-    Edge_Ops = ['in','not']
 
     if protocol == 'combos': series = False
     elif protocol == 'series': series = True
@@ -33,9 +32,9 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
     net.graph['outputs'] = [i for i in range(n - num_out,n)]
 
     for i in range(n): #hidden nodes are NOT added here, but are recursively added during gen_Gs()
-        if i < num_in: net.add_node(i,op='input')
-        elif i >= n - num_out: net.add_node(i,op='output')
-        #else: net.add_node(i, op=None)
+        if i < num_in: net.add_node(i,layer='input', op='input')
+        elif i >= n - num_out: net.add_node(i,layer='output')
+        #else: net.add_node(i, layer='hidden')
 
     if debug: init_t = time()
     dyn_trim=True
@@ -55,7 +54,7 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
 
     inform_nets.picklem(Gs, out_dir, n, chkpt='pre-combos')
 
-    Gs = assign_op_combos(Gs, ex, Edge_Ops=Edge_Ops, all_in_edges_same=False, dyn_trim=False) #dyn_trim only useful if gen huge # of graphs --> mem problem
+    Gs = assign_op_combos(Gs, ex, Edge_Ops=['id','not'], Node_Ops=['and'], all_in_edges_same=False, dyn_trim=False) #dyn_trim only useful if gen huge # of graphs --> mem problem
     if debug: prev_t = time_n_print(prev_t, Gs, 'assign op combos')
 
     check(Gs, series)
@@ -145,42 +144,41 @@ def rm_inversions(Gs, ops=False, in_out_too = False):
     return Gs
 
 
-def assign_op_combos(Gs, ex, dyn_trim=False, all_in_edges_same=False, Edge_Ops=None):
+def assign_op_combos(Gs, ex, dyn_trim=False, all_in_edges_same=False, Edge_Ops=None, Node_Ops=['and']):
     
     input_edges_id = False
     if input_edges_id: print("\nWARNING assign_op_combos(): all out edges from inputs given 'id' op.\n")
     
     Gs_opd = []
     if Edge_Ops is None: Edge_Ops = ['id','not'] #capital to distinguish from later loop
-    Node_Ops = ['and'] # all other ops already captured via edges
 
     for G in Gs:
-        net = G.copy()
+        net = G.copy()    
+        nodes_w_ops = net.graph['hidden'] + net.graph['outputs']
 
         if all_in_edges_same:
             assert(not input_edges_id)
             assert(Node_Ops == ['and'])
-            for n in net.graph['hidden']:
+            for n in nodes_w_ops:
                 net.nodes[n]['op'] = 'and'
             
             #poss creates an extra copy, but need to cover case where direct in->out edge
-            node_ins = net.graph['hidden'] + net.graph['outputs']
-            node_in_prods = product(Edge_Ops,repeat=len(node_ins))
-            node_out_prods = product(Node_Ops,repeat=len(net.graph['hidden']))
+            node_in_prods = product(Edge_Ops,repeat=len(nodes_w_ops))
+            node_out_prods = product(Node_Ops,repeat=len(nodes_w_ops))
             prods = product(node_in_prods,node_out_prods)
 
             for p in prods:
                 node_in_ops,node_out_ops = p[0],p[1]
                 pnet = net.copy()
-                node_ins_copy = node_ins.copy() #prob not nec
+                nodes_w_ops_copy = nodes_w_ops.copy() #prob not nec
 
                 for i in rng(node_out_ops):
-                    h = pnet.graph['hidden'][i]
+                    h = nodes_w_ops[i]
                     for e in pnet.out_edges(h):
                         pnet[e[0]][e[1]]['op'] = node_out_ops[i]
 
                 for i in rng(node_in_ops):
-                    h = node_ins_copy[i]
+                    h = nodes_w_ops_copy[i]
                     for e in pnet.in_edges(h):
                         pnet[e[0]][e[1]]['op'] = node_in_ops[i]
 
@@ -195,8 +193,6 @@ def assign_op_combos(Gs, ex, dyn_trim=False, all_in_edges_same=False, Edge_Ops=N
 
         else:
 
-            ordered_edges = list(net.out_edges(net.graph['hidden']))
-            
             if input_edges_id:
                 for e in net.out_edges(net.graph['inputs']):
                     net[e[0]][e[1]]['op'] = 'id'
@@ -204,16 +200,16 @@ def assign_op_combos(Gs, ex, dyn_trim=False, all_in_edges_same=False, Edge_Ops=N
             else: ordered_edges = list(net.out_edges(net.graph['hidden']+net.graph['inputs']))
 
             edge_prods = product(Edge_Ops,repeat=len(ordered_edges))
-            node_prods = product(Node_Ops,repeat=len(net.graph['hidden']))
+            node_prods = product(Node_Ops,repeat=len(nodes_w_ops))
             prods = product(edge_prods,node_prods)
 
             for p in prods:
                 edge_ops,node_ops = p[0],p[1]
                 pnet = net.copy()
                 ord_es = ordered_edges.copy()
-                assert(len(node_ops) == len(net.graph['hidden']) and len(ord_es) == len(edge_ops))
+                assert(len(node_ops) == len(nodes_w_ops) and len(ord_es) == len(edge_ops))
                 for i in rng(node_ops):
-                    pnet.nodes[net.graph['hidden'][i]]['op'] = node_ops[i]
+                    pnet.nodes[nodes_w_ops[i]]['op'] = node_ops[i]
                 for i in rng(edge_ops):
                     e1,e2 = ord_es[i][0], ord_es[i][1]
                     pnet[e1][e2]['op'] = edge_ops[i]
@@ -267,10 +263,10 @@ def check(Gs, series):
                 assert(len(G.in_edges(h))==2)
         for i in G.graph['inputs']:
             assert(len(G.in_edges(i)) == 0)
-            assert(G.nodes[i]['op']=='input')
+            assert(G.nodes[i]['layer']=='input')
         for o in G.graph['outputs']:
-            assert(G.nodes[o]['op']=='output')
-            assert(len(G.in_edges(o)) < 2)
+            assert(G.nodes[o]['layer']=='output')
+            assert(len(G.in_edges(o)) in [1,2])
             assert(len(G.out_edges(o)) == 0)
 
 
@@ -287,8 +283,7 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,serie
     Gs = []
     for t in rng(target_nodes):
         # terminate this branch if target_node already has enough edges
-        if net_orig.nodes[target_nodes[t]]['op'] == 'output': num_edges = 1
-        else: num_edges = max_in_degree
+        num_edges = max_in_degree
         if len(net_orig.in_edges(target_nodes[t])) == num_edges: done=True
         else: done=False
 
@@ -324,7 +319,7 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,serie
 
                 #TODO: this is fucking stupid, make my own copy fn()?
                 net.graph['hidden'] = net_orig.graph['hidden'].copy()
-                net.add_node(hidden_nodes[i], op=None)
+                net.add_node(hidden_nodes[i], op=None, layer='hidden')
                 if hidden_nodes[i] not in net.graph['hidden']:
                     net.graph['hidden'] += [hidden_nodes[i]]
 
