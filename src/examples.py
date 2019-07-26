@@ -81,7 +81,22 @@ def get_io(name):
         input = [[1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0],[1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0],
         [1,1,0,0,1,1,0,0,1,1,0,0,1,1,0,0],[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0]]
         output = [sum(input[i][j] for i in rng(input)) % 2 for j in rng(input[0])]
-
+ 
+    elif name == 'asym':
+    	input = [[1,1,0,0],[1,0,1,0]]
+    	output = [1,1,0,1]
+    elif name == 'asym2':
+    	input = [[0,0,1,1],[1,0,1,0]]
+    	output = [1,1,0,1]
+    elif name == 'asym3':
+    	input = [[0,0,1,0],[1,0,1,0]]
+    	output = [1,0,0,0]
+    elif name == 'asym4':
+    	input = [[1,1,0,1],[1,0,1,0]]
+    	output = [1,0,0,0]
+    elif name == 'asym5': #not exactly asymm, compare with xor2
+        input = [[1,1,1,0],[0,1,1,1]]
+        output = [1,0,0,0]
     else:
         assert (False)  # unknown sys.argv[1]
 

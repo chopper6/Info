@@ -19,7 +19,7 @@ from util import *
 # but which ones remain unclear...
 
 
-def plot_ex(ex, output_path, normalize=True, debug=False):
+def plot_ex(ex, output_path, normalize=False, debug=False):
 
     input, output = examples.get_io(ex)
     num_inst = len(output)
@@ -34,12 +34,17 @@ def plot_ex(ex, output_path, normalize=True, debug=False):
 
     # PID candidates
     Rs = R_candidates(Pr, Al, num_inst)
-    if normalize: PIDs = PID_decompose_normzd(Rs, Pr, Al)
+    if normalize: 
+        print("\nWARNING: PID.plot_ex(): using normalized version.")
+        PIDs = PID_decompose_normzd(Rs, Pr, Al, print_PID=False)
     else: PIDs = PID_decompose(Rs, Pr)
 
     #axioms.check_axioms(Pr, PIDs, output_path, ex)
 
-    plot_pieces.info_bars(Pr, Al, output_path, ex)
+    #plot_pieces.info_bars(Pr, Al, output_path, ex, bar_choice='H')
+    plot_pieces.info_bars(Pr, Al, output_path, ex, bar_choice='I')
+    plot_pieces.info_bars(Pr, Al, output_path, ex, bar_choice='I2')
+    plot_pieces.info_bars(Pr, Al, output_path, ex, bar_choice='I1')
     plot_pieces.PID_pie(PIDs, output_path, ex)
 
     return Pr, PIDs
@@ -58,8 +63,8 @@ def R_candidates(Pr, Al, num_inst):
 
     # TODO: poss frag into smaller fns
 
-    xkeys = ['<ii/i>x','min>x', 'min>x/h', 'min>>']
-    ykeys = ['<ii/i>y','min>y', 'min>y/h']
+    xkeys = ['<ii/i>x','<ii>x/h','<ii>x/hi','min>x','min h(x|y)','i2>x']
+    ykeys = ['<ii/i>y','<ii>y/h','<ii>y/hi','min>y','min h(y|x)','i2>y']
     wkeys = [] #['II/I', 'min(II)', 'min(III)'] #w for whole
 
     cand_keys = xkeys + ykeys + wkeys
@@ -82,19 +87,16 @@ def R_candidates(Pr, Al, num_inst):
             r[i]['<ii/i>x'] = partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i) \
                               / partial_info(Pr,Al,'y','x1,x2',i)
 
-        r[i]['<iii/i>x'] = r[i]['<ii/i>x'] * info(Pr[i],'x1','x2')
-        r[i]['sqrt I<ii/i>x'] = r[i]['<ii/i>x']
-        #r[i]['<ii/h>x'] = partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i) / h(Pr[i], 'x1,x2')
-        r[i]['sqrt <ii>x'] = pow(partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i), 1/2)
-
+        r[i]['<ii>x/hi'] = r[i]['<ii/i>x']/h(Pr[i],'x1,x2')
+        r[i]['<ii>x/h'] = partial_info(Pr,Al,'y','x1',i) * partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x1,x2')
         r[i]['min>x'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
         r[i]['min>>'] = min(partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i),partial_info(Pr,Al,'x1','y',i),partial_info(Pr,Al,'x2','y',i))
 
+        i2_1,i2_2 = max(i2(Pr, Al, 'y', 'x1', i),0),max(i2(Pr, Al, 'y', 'x2', i),0)
+        #i2_1,i2_2 = i2(Pr, Al, 'y', 'x1', i),i2(Pr, Al, 'y', 'x2', i)
+        r[i]['i2>x'] = min(i2_1,i2_2)
 
-
-        r[i]['min>x/h'] = min(partial_info(Pr,Al,'y','x1',i)/h(Pr[i],'x1'),partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x2'))
-
-        r[i]['min(iiii)>x'] = min(partial_info(Pr,Al,'x2','x1',i), partial_info(Pr,Al,'x1','x2',i),  partial_info(Pr,Al,'y','x1',i),partial_info(Pr,Al,'y','x2',i))
+        r[i]['min h(x|y)'] = min(h(Pr[i],'x1')-h_cond(Pr[i],'x1','y'),h(Pr[i],'x2')-h_cond(Pr[i],'x2','y'))
 
         # PARTIAL Y CANDIDATES
         if partial_info(Pr,Al,'x1,x2','y',i) == 0:
@@ -103,18 +105,15 @@ def R_candidates(Pr, Al, num_inst):
             r[i]['<ii/i>y'] = partial_info(Pr,Al,'x1','y',i) * partial_info(Pr,Al,'x2','y',i) \
                               / partial_info(Pr,Al,'x1,x2','y',i)
 
-        r[i]['<iii/i>y'] = r[i]['<ii/i>y'] * info(Pr[i], 'x1', 'x2')
-        r[i]['sqrt I<ii/i>y'] = r[i]['<ii/i>y']
-        #r[i]['<ii/h>y'] = partial_info(Pr,Al,'x1','y',i) * partial_info(Pr,Al,'x2','y',i) / h(Pr[i], 'x1,x2')
-        r[i]['sqrt <ii>y'] = pow(partial_info(Pr, Al, 'x1','y', i) * partial_info(Pr, Al,'x2', 'y',i), 1 / 2)
-
+        r[i]['<ii>y/hi'] = r[i]['<ii/i>y']/h(Pr[i],'x1,x2')
+        r[i]['<ii>x/h'] = partial_info(Pr,Al,'x1','y',i) * partial_info(Pr,Al,'x2','y',i)/h(Pr[i],'y')
         r[i]['min>y'] = min(partial_info(Pr, Al,'x1','y', i), partial_info(Pr, Al, 'x2','y', i))
 
-        r[i]['min>y/h'] = min(partial_info(Pr,Al,'x1','y',i)/h(Pr[i],'y'),partial_info(Pr,Al,'x2','y',i)/h(Pr[i],'y'))
+        i2_1,i2_2 = max(i2(Pr, Al, 'x1','y', i),0),max(i2(Pr, Al,'x2','y', i),0)
+        #i2_1,i2_2 = i2(Pr, Al, 'x1','y', i),i2(Pr, Al,'x2','y', i)
+        r[i]['i2>y'] = min(i2_1,i2_2)
 
-        r[i]['min(iiii)>y'] = min(partial_info_1of3(Pr, Al, 'x2', 'x1','y', i),
-                              partial_info(Pr, Al, 'x1', 'y', i), partial_info(Pr, Al, 'x2','y', i))
-
+        r[i]['min h(y|x)'] = min(h(Pr[i],'y')-h_cond(Pr[i],'y','x1'),h(Pr[i],'y')-h_cond(Pr[i],'y','x2'))
 
     # AVERAGE pointwise r -> R
     R = {k: 0 for k in cand_keys}
@@ -141,33 +140,51 @@ def R_candidates(Pr, Al, num_inst):
 
 
 
-def PID_decompose_normzd(R, Pr, Al, print_PID=False):
+def PID_decompose_normzd(R, Pr, Al, print_PID=False, x1x2logbase=2):
     # note that earlier sense of R[i] would have to be avg'd for R
     # TODO: rm Al arg if unused
-    '''
-    PID = {k:{'R':R[k], 'U1':avg([info(Pr[i],'x1','y')/h(Pr[i],'y') for i in rng(Pr)]),
-            'U2':avg([info(Pr[i],'x2','y')/h(Pr[i],'y') for i in rng(Pr)]), 
-            'S':avg([info(Pr[i],'x1,x2','y')/h(Pr[i],'y') for i in rng(Pr)])}
-           for k in R.keys()}
 
-    # in order to Itot normzd = 1 for all examples where all outputs are known from xx: init PID with 'S':avg([info(Pr[i],'x1,x2','y')/h(Pr[i],'y')
-
-    PID['min>x/h'] = {'R':R['min>x/h'], 'U1':avg([info(Pr[i],'x1','y')/h(Pr[i],'x1') for i in rng(Pr)]),
-            'U2':avg([info(Pr[i],'x2','y')/h(Pr[i],'x2') for i in rng(Pr)]), 
-            'S':avg([info(Pr[i],'x1,x2','y')/h(Pr[i],'x1,x2',logbase=4) for i in rng(Pr)])}
-    print('\ninit pid = ' + str(PID['min>x/h']))
-    assert(False)
-    '''
     PID = {k:{'R':R[k], 'U1':Info(Pr,'x1','y'),
         'U2':Info(Pr,'x2','y'),'S':Info(Pr,'x1,x2','y')} for k in R.keys()}
 
+
+    PID['min h(x|y)'] = {'R':R['min h(x|y)'], 'U1':H(Pr,'x1')-H_cond(Pr,'x1','y'),
+            'U2':H(Pr,'x2')-H_cond(Pr,'x2','y'), 'S':H(Pr,'x1,x2')-H_cond(Pr,'x1,x2','y')}
+    PID['min h(y|x)'] = {'R':R['min h(y|x)'], 'U1':H(Pr,'y')-H_cond(Pr,'y','x1'),
+            'U2':H(Pr,'y')-H_cond(Pr,'y','x2'), 'S':H(Pr,'y')-H_cond(Pr,'y','x1,x2')}
+    
+    
+    normz_keys = [['<ii>x/hi','<ii>y/hi'],['<ii>x/h','<ii>y/h']]
+
+    for z in normz_keys:
+        x,y=z[0],z[1]
+        if Info(Pr,'x1','y')!=0:    
+            PID[x]['U1'] = avg([partial_info(Pr,Al,'y','x1',i)/h(Pr[i],'x1') for i in rng(Pr)])
+            PID[y]['U1'] = avg([partial_info(Pr,Al,'x1','y',i)/h(Pr[i],'y') for i in rng(Pr)])
+        else: 
+            PID[x]['U1'] = 0
+            PID[y]['U1'] = 0
+        if Info(Pr,'x2','y')!=0:
+            PID[x]['U2'] = avg([partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x2') for i in rng(Pr)])
+            PID[y]['U2'] = avg([partial_info(Pr,Al,'x2','y',i)/h(Pr[i],'y') for i in rng(Pr)])
+        else: 
+            PID[x]['U2'] = 0
+            PID[y]['U2'] = 0
+        if Info(Pr,'x1,x2','y')!=0: 
+            PID[x]['S'] = avg([partial_info(Pr,Al,'y','x1,x2',i)/h(Pr[i],'x1,x2',logbase=x1x2logbase) for i in rng(Pr)])
+            PID[y]['S'] = avg([partial_info(Pr,Al,'x1,x2','y',i)/h(Pr[i],'y') for i in rng(Pr)]) 
+            #PID[x]['S'] = avg([partial_info(Pr,Al,'y','x1,x2',i) for i in rng(Pr)])
+            #PID[y]['S'] = avg([partial_info(Pr,Al,'x1,x2','y',i) for i in rng(Pr)]) 
+        else: 
+            PID[x]['S'] = 0
+            PID[y]['S'] = 0
+            
     for k in PID.keys():
     	for p in ['R', 'U1', 'U2', 'S']:
             PID[k][p] = round(PID[k][p],8) #rounding
 
     if print_PID: 
     	print('\noriginal PID = ' + str(PID))
-    	assert(False) #temp, can rm
 
     for k in PID.keys():
 
@@ -187,13 +204,13 @@ def PID_decompose_normzd(R, Pr, Al, print_PID=False):
     return PID
 
 
-def PID_decompose(R, Pr, print_PID=True):
+def PID_decompose(R, Pr, print_PID=False):
     # note that earlier sense of R[i] would have to be avg'd for R
 
     PID = {k:{'R':R[k], 'U1':Info(Pr,'x1','y'),
             'U2':Info(Pr,'x2','y'), 'S':Info(Pr,'x1,x2','y')}
            for k in R.keys()}
-    
+
     for k in PID.keys():
 
         PID[k]['U1'] -= PID[k]['R']
@@ -223,7 +240,7 @@ if __name__ == "__main__":
     if sys.argv[1] == 'all':
         exs = ['xor','id', 'id2','id3','and','breaker','rdnerr', 'an', 'pwunq',
                'xor2','pw_v2', 'pw_v3','xx1','xx2','imbalance','imbalance2','imbalance3', 'concat', 
-               'nor','nand','aneg']
+               'nor','nand','aneg','asym','asym2','asym3','asym4']
         #crutch_dyadic', 'crutch_triadic'
         PIDS,PR = {}, {}
         for ex in exs:
@@ -238,3 +255,5 @@ if __name__ == "__main__":
         axioms.check_axioms(Pr, PIDs, output_path, sys.argv[1])
 
     print("\nDone.\n")
+
+

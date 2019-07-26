@@ -39,6 +39,8 @@ def build_p_atoms(pr_y, pr_x, pr_xx, pr_xy, pr_xxy, num_instances):
         p_atoms[i]['x2,x1,y'] = pr_xxy[i]
         p_atoms[i]['y,x1,x2'] = pr_xxy[i]
         p_atoms[i]['y,x2,x1'] = pr_xxy[i]
+        p_atoms[i]['x1,y,x2'] = pr_xxy[i]
+        p_atoms[i]['x2,y,x1'] = pr_xxy[i]
         p_atoms[i]['xxy'] = pr_xxy[i]
         p_atoms[i]['xx,y'] = pr_xxy[i]
         p_atoms[i]['y,xx'] = pr_xxy[i]
@@ -47,9 +49,13 @@ def build_p_atoms(pr_y, pr_x, pr_xx, pr_xy, pr_xxy, num_instances):
         p_atoms[i]['p(y|x1)'] = pr_xy[0][i]/pr_x[0][i]
         p_atoms[i]['p(y|x2)'] = pr_xy[1][i]/pr_x[1][i]
         p_atoms[i]['p(y|xx)'] = pr_xxy[i]/pr_xx[i]
+        p_atoms[i]['p(y|x1,x2)'] = pr_xxy[i]/pr_xx[i]
         p_atoms[i]['p(x1|y)'] = pr_xy[0][i]/pr_y[i]
         p_atoms[i]['p(x2|y)'] = pr_xy[1][i]/pr_y[i]
+        p_atoms[i]['p(x1|x2)'] = pr_xy[0][i]/pr_xy[1][i]
+        p_atoms[i]['p(x2|x1)'] = pr_xy[1][i]/pr_xy[0][i]
         p_atoms[i]['p(xx|y)'] = pr_xxy[i]/pr_y[i]
+        p_atoms[i]['p(x1,x2|y)'] = pr_xxy[i]/pr_y[i]
 
     return p_atoms, p_keys
 
@@ -213,6 +219,4 @@ def find_prs_aligned(input, output, debug=False, disordered=False):
                aligned_inputs, aligned_outputs
 
     else: return aligned_pr_y, aligned_pr_x, aligned_pr_xx, aligned_pr_xy, aligned_pr_xxy, aligned_inputs, aligned_outputs
-
-
 

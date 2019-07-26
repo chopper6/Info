@@ -33,12 +33,16 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
 
     for i in range(n): #hidden nodes are NOT added here, but are recursively added during gen_Gs()
         if i < num_in: net.add_node(i,layer='input', op='input')
-        elif i >= n - num_out: net.add_node(i,layer='output')
+        elif i >= n - num_out: net.add_node(i,layer='output', op='output')
         #else: net.add_node(i, layer='hidden')
 
     if debug: init_t = time()
     dyn_trim=True
-    Gs = gen_Gs(net, net.graph['outputs'], net.graph['inputs'], hidden_nodes, series=series, dyn_trim=dyn_trim)
+
+    # NOTE: need 'short_cut=False' for mult k-AND path-lng archs
+    short_cut = False
+    if short_cut: print("\nWARNING: short_cut is ON, cannot generate mult k-AND path-lng architectures.")
+    Gs = gen_Gs(net, net.graph['outputs'], net.graph['inputs'], hidden_nodes, short_cut=short_cut, series=series, dyn_trim=dyn_trim)
 
     if debug: prev_t = time_n_print(init_t, Gs, 'generate Gs')
 
@@ -54,19 +58,22 @@ def gen_graphs(n, ex, out_dir, protocol='combos', debug=False, draw=False):
 
     inform_nets.picklem(Gs, out_dir, n, chkpt='pre-combos')
 
-    Gs = assign_op_combos(Gs, ex, Edge_Ops=['id','not'], Node_Ops=['and'], all_in_edges_same=False, dyn_trim=False) #dyn_trim only useful if gen huge # of graphs --> mem problem
+    Gs = assign_op_combos(Gs, ex, Edge_Ops=['id','not'], Node_Ops=['and'], all_in_edges_same=True, dyn_trim=False) #dyn_trim only useful if gen huge # of graphs --> mem problem
     if debug: prev_t = time_n_print(prev_t, Gs, 'assign op combos')
 
     check(Gs, series)
     inform_nets.picklem(Gs, out_dir, n, chkpt='size-specific')
     
-    Gs = keep_correct(Gs, ex)
+    Gs, all_Gs = keep_correct(Gs, ex)
+
+
     if debug: prev_t = time_n_print(prev_t, Gs, 'check and filter correct Gs')
     inform_nets.picklem(Gs, out_dir, n, ex=ex, chkpt='ex-specific')
+    #TODO: add all_Gs to picklem
 
     if draw: draw_nets.save_mult(Gs, out_dir)
 
-    return Gs
+    return Gs, all_Gs
 
 
 def time_n_print(prev_t, Gs, name):
@@ -79,9 +86,15 @@ def time_n_print(prev_t, Gs, name):
 def keep_correct(Gs, ex):
     correct_Gs = []
     for G in Gs:
-        accuracy = run_fwd.all_instances(G, ex)
-        if accuracy == 1: correct_Gs += [G]
-    return correct_Gs
+        accuracy, acc_entropy = run_fwd.all_instances(G, ex)
+        G.graph['accuracy'] = accuracy
+        G.graph['accuracy_entropy'] = acc_entropy
+
+        if accuracy == 1: 
+            correct_Gs += [G]
+            G.graph['correct'] = True
+        else: G.graph['correct'] = False
+    return correct_Gs, Gs
 
 
 def rm_repeats(Gs):
@@ -154,7 +167,7 @@ def assign_op_combos(Gs, ex, dyn_trim=False, all_in_edges_same=False, Edge_Ops=N
 
     for G in Gs:
         net = G.copy()    
-        nodes_w_ops = net.graph['hidden'] + net.graph['outputs']
+        nodes_w_ops = net.graph['hidden'] #+ net.graph['outputs']
 
         if all_in_edges_same:
             assert(not input_edges_id)
@@ -276,7 +289,7 @@ def choose_source(net, sources, target_node):
             return i
     return None
 
-def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,series=False,max_in_degree=2, verbose=True):
+def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,short_cut=False,dyn_trim=True,series=False,max_in_degree=2, verbose=True):
     # calls rm_repeats(Gs) as Gs are built, which dramatically reduces run time
     # "series" arg refers to a population of graphs built on consecutive correct subgraphs
 
@@ -289,11 +302,12 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,serie
 
         if not done:
 
-            chosen= choose_source(net_orig, input_nodes, target_nodes[t])
-            if chosen is not None:    i=chosen
-            # cut above if decide to use below
 
             for i in rng(net_orig.graph['inputs']):
+                if short_cut: #basically overrides the for loop above
+                    chosen= choose_source(net_orig, input_nodes, target_nodes[t])
+                    if chosen is not None:    i=chosen
+
                 if not net_orig.has_edge(net_orig.graph['inputs'][i],target_nodes[t]):
 
                     net = net_orig.copy()
@@ -306,9 +320,10 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,serie
 
                         if proper or not series:
                             # try again with same target node with new input node attached
-                            Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series)
+                            Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series, short_cut=short_cut)
                             if dyn_trim: rm_repeats(Gs)
 
+                if short_cut: break #basically overrides the for loop above
 
 
             chosen = choose_source(net_orig, hidden_nodes, target_nodes[t])
@@ -334,14 +349,14 @@ def gen_Gs(net_orig, target_nodes, input_nodes, hidden_nodes,dyn_trim=True,serie
 
                     if proper or not series:
                         # try again with same target node with new hidden node attached
-                        Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series)
+                        Gs += gen_Gs(net, target_nodes, input_nodes, hidden_nodes, series=series, short_cut=short_cut)
                         if dyn_trim: rm_repeats(Gs)
 
                     # try again with the hidden node as the new target
                     # hidden_node[i] rm'd since would always cause a cycle
                     new_hidden_nodes = hidden_nodes.copy()
                     del new_hidden_nodes[i]
-                    Gs += gen_Gs(net, target_nodes + [hidden_nodes[i]], input_nodes, new_hidden_nodes, series=series)
+                    Gs += gen_Gs(net, target_nodes + [hidden_nodes[i]], input_nodes, new_hidden_nodes, series=series, short_cut=short_cut)
                     if dyn_trim: rm_repeats(Gs)
     return Gs
 

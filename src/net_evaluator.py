@@ -7,6 +7,8 @@ from util import *
 def eval(Gs,out_dir, pid_protocol='single', hnormz=False, output_choice='immed'):
 	#pid_keys = ['<i>x','<i>y']
 
+	if hnormz: print("\nWARNING net_evaluator: hnormz is ON\n")
+
 	net_PIDs, node_PIDs = [], []
 	for G in Gs:
 		PIDs = []
@@ -17,7 +19,9 @@ def eval(Gs,out_dir, pid_protocol='single', hnormz=False, output_choice='immed')
 				if pid_protocol == 'single': PIDs += [eval_node_horz_PID(G,n,hnormz = hnormz, output_choice=output_choice)]
 				elif pid_protocol == 'S/maxR':PIDs += [eval_node_SdivR_PID(G,n)]
 				else: assert(False) #unknown protocol
-			else: assert(len(G.in_edges(n)) == 1)
+			else: 
+				assert(len(G.in_edges(n)) == 1)
+				PIDs += [eval_single_edge_PID(G,n,hnormz = hnormz, output_choice=output_choice)]
 
 		if len(PIDs) > 0:
 			net_PIDs += [merge_node_PIDs(PIDs)]
@@ -30,10 +34,18 @@ def eval(Gs,out_dir, pid_protocol='single', hnormz=False, output_choice='immed')
 
 def merge_node_PIDs(PIDs):
 	PID_total = {k:{'R':0, 'U1':0,'U2':0, 'S':0} for k in PIDs[0].keys()}
+	pre_avg = False
+	# WHY DOES THIS WORK, BUT LATER AVG DOESN'T???
 	for pid in PIDs:
 		for k in pid.keys():
 			for p in pid[k].keys():
 				PID_total[k][p] += pid[k][p]
+
+	if pre_avg:
+		for k in pid.keys():
+			for p in pid[k].keys(): 
+				PID_total[k][p]/=len(PIDs)
+
 
 	return PID_total
 
@@ -57,6 +69,21 @@ def eval_node_horz_PID(net,node, hnormz=False, output_choice='immed'):
 	net.node[node]['pid'] = pids
 	return pids
 
+
+def eval_single_edge_PID(net,node, hnormz=False, output_choice='immed'):
+	# WARNING: temp fix, artificially places all as UNIQUE
+	assert(len(net.graph['outputs']) == 1)
+	es = list(net.in_edges(node))
+	assert(len(es) == 1)
+	inputs = [net.nodes[es[0][0]]['hist'],[0 for i in rng(net.nodes[es[0][0]]['hist'])]]
+
+	if output_choice == 'final': output = net.nodes[net.graph['outputs'][0]]['hist']
+	elif output_choice == 'immed': output = net.nodes[node]['hist']
+	else: assert(False) #unknown 'output_choice'
+
+	pids =  eval_node_PID(net, inputs, output, hnormz=hnormz)
+	net.node[node]['pid'] = pids
+	return pids
 
 def eval_node_SdivR_PID(net,node):
 	assert(len(net.graph['outputs']) == 1)
@@ -88,7 +115,7 @@ def path_pids(G):
 	# curr very inefficient...only good for small nets
 	
 	# init reset
-	for n in G.graph['hidden'] + G.graph['output']:
+	for n in G.graph['hidden']: # + G.graph['output']:
 		G.node[n]['pid_path'] = None
 
 	# assign pid paths
@@ -145,9 +172,9 @@ def eval_node_PID(net,input,output,hnormz=False, x1x2logbase=4):
 	# PID candidates
 	Rs = R(Pr, Al, num_inst, hnormz=hnormz)
 
-	print("\nWARNING: need to adjust PID for edge op entropy...")
+	#print("\nWARNING: need to adjust PID for edge op entropy...")
 
-	PIDs = PID_decompose(Rs, Pr, print_PID=False, hnormz=hnormz, x1x2logbase=x1x2logbase)
+	PIDs = PID_decompose(Rs, Pr, Al, print_PID=False, hnormz=hnormz, x1x2logbase=x1x2logbase)
 	return PIDs
 
 
@@ -192,31 +219,34 @@ def R(Pr, Al, num_inst, hnormz=False):
 	return R
 
 
-def PID_decompose(R, Pr, print_PID=True, hnormz=False, x1x2logbase=4):
+def PID_decompose(R, Pr, Al, print_PID=True, hnormz=False, x1x2logbase=4):
 	# note that earlier sense of R[i] would have to be avg'd for R
 
 
 	U1, U2, S =  Info(Pr,'x1','y'),  Info(Pr,'x2','y'), Info(Pr,'x1,x2','y')
+	PID = {k:{'R':R[k], 'U1':U1, 'U2':U2, 'S':S} for k in R.keys()}
 
 	if hnormz:
-
 		if Info(Pr,'x1','y')!=0:	
-			U1y = U1/H(Pr,'y')
-			U1 /= H(Pr,'x1')
-		else: U1y=U1
+			PID['min>x']['U1'] = avg([partial_info(Pr,Al,'y','x1',i)/h(Pr[i],'x1') for i in rng(Pr)])
+			PID['min>y']['U1'] = avg([partial_info(Pr,Al,'x1','y',i)/h(Pr[i],'y') for i in rng(Pr)])
+		else: 
+			PID['min>x']['U1'] = 0
+			PID['min>y']['U1'] = 0
 		if Info(Pr,'x2','y')!=0:
-			U2y = U2/H(Pr,'y')
-			U2 /= H(Pr,'x2')
-		else: U2y=U2
+			PID['min>x']['U2'] = avg([partial_info(Pr,Al,'y','x2',i)/h(Pr[i],'x2') for i in rng(Pr)])
+			PID['min>y']['U2'] = avg([partial_info(Pr,Al,'x2','y',i)/h(Pr[i],'y') for i in rng(Pr)])
+		else: 
+			PID['min>x']['U2'] = 0
+			PID['min>y']['U2'] = 0
 		if Info(Pr,'x1,x2','y')!=0: 
-			Sy = S/	H(Pr,'y')
-			S /= H(Pr,'x1,x2',logbase=x1x2logbase)
-		else:Sy=S
-
-
-	PID = {k:{'R':R[k], 'U1':U1, 'U2':U2, 'S':S}
-		   for k in R.keys()}
-	if hnormz: PID['min>y'] = {'R':R['min>y'], 'U1':U1y, 'U2':U2y, 'S':Sy}
+			#PID['min>x']['S'] = avg([partial_info(Pr,Al,'y','x1,x2',i)/h(Pr[i],'x1,x2',logbase=x1x2logbase) for i in rng(Pr)])
+			#PID['min>y']['S'] = avg([partial_info(Pr,Al,'x1,x2','y',i)/h(Pr[i],'y') for i in rng(Pr)]) 
+			PID['min>x']['S'] = avg([partial_info(Pr,Al,'y','x1,x2',i) for i in rng(Pr)])
+			PID['min>y']['S'] = avg([partial_info(Pr,Al,'x1,x2','y',i) for i in rng(Pr)]) 
+		else: 
+			PID['min>x']['S'] = 0
+			PID['min>y']['S'] = 0
 
 	for k in PID.keys():
 

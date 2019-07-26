@@ -1,5 +1,8 @@
 import networkx as nx
 import examples, draw_nets
+from math import log
+import numpy as np
+from util import *
 
 # op: layer or activation function
 # out: the output value that the node passes, post activation fn
@@ -8,18 +11,32 @@ import examples, draw_nets
 # TODO: assumes 1 output and binary problem
 
 def all_instances(net, ex):
-    acc = 0
+    acc, accs = 0, []
     for n in net.nodes(): net.nodes[n]['hist'] = []
     input,output = examples.get_io(ex)
     for i in range(len(output)):
 
-        acc += one_instance(net, ex, i)
+        this_acc = one_instance(net, ex, i)
+        accs += [this_acc]
+        acc += this_acc
 
         # save output for later evaluation
         for n in net.nodes(): net.nodes[n]['hist'] += [net.nodes[n]['out']]
 
     acc /= len(output)
-    return acc
+    return acc, entropy_of_accs(accs)
+
+
+
+def entropy_of_accs(accs):
+    unique_accs, acc_counts = np.unique(accs, return_counts=True)
+    tot = sum(acc_counts)
+    H=0
+    for i in rng(acc_counts):
+        pr=acc_counts[i]/tot
+        
+        H+= -1 *pr* log(pr,2)
+    return H
 
 
 def one_instance(net, ex, instance):

@@ -4,19 +4,23 @@ from util import *
 
 
 
-def all_combos(n, ex, protocol, output_path, pickle_type=None):
+def all_combos(n, ex, protocol, output_path, pickle_type=None, output_choice='immed'):
     orig_output_path = output_path
     output_path = output_path + 'candidates_' + str(ex) + '/'
 
     if pickle_type:
         Gs = from_pickle(orig_output_path + 'pickled_nets/', n, ex, pickle_type) 
     else:
-        Gs = net_generator.gen_graphs(n, ex, output_path, debug=True, draw=False,protocol=protocol)
+        Gs, all_Gs = net_generator.gen_graphs(n, ex, output_path, debug=True, draw=False,protocol=protocol)
     
     if len(Gs) > 0:
-        net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path, pid_protocol='single',output_choice='immed', hnormz=False)
+        net_PIDs, node_PIDs = net_evaluator.eval(Gs, output_path, hnormz=False, pid_protocol='single',output_choice=output_choice)
         edge_fitness.population(Gs)
-        draw_nets.set_of_nets(net_PIDs, node_PIDs, Gs, output_path, n)
+        draw_nets.set_of_nets(net_PIDs, node_PIDs, Gs, output_path, n, popn_feature='num_nodes')
+
+        #all_net_PIDs, all_node_PIDs = net_evaluator.eval(all_Gs, output_path, hnormz=False, pid_protocol='single',output_choice=output_choice)
+        #draw_nets.set_of_nets(all_net_PIDs, all_node_PIDs, all_Gs, output_path, n, popn_feature='accuracy')
+    
     else:
         print("\nWARNING: no viable networks were returned so no plots were generated ... ):\n")
 
@@ -33,7 +37,7 @@ def from_pickle(out_dir, n, ex, pickle_type, debug=True):
         picklem(Gs, out_dir, n, ex=ex) 
         if debug: print("CorrectGs remaining lng = " + str(len(Gs)))
         
-    elif pickle_type == 'ex-specific': #i.e. the keep_correct() filtering has already occured, just want to plot
+    elif pickle_type in ['ex-specific','ex-spc','es']: #i.e. the keep_correct() filtering has already occured, just want to plot
         # could change to 'for-plot'
         Gs = pickle.load( open(out_dir + 'all_nets_size_' + str(n) + '_filtered_' + str(ex), "rb" ) )
         print("Loaded " + str(len(Gs)) + " pickled nets, using directly for plotting...")
